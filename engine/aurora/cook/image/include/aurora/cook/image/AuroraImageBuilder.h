@@ -26,6 +26,10 @@ namespace sky::aurora {
         }
         std::string_view QueryType(const std::string &) const override;
 
+        std::vector<FilePath> ConfigurationFiles() const override
+        {
+            return {FilePath("image_build_presets.json")};
+        }
         void LoadConfig(const FileSystemPtr &cfg) override;
         void Request(const AssetBuildRequest &request, AssetBuildResult &result) override;
 

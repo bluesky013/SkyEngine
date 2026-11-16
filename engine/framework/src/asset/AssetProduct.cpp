@@ -34,6 +34,21 @@ namespace sky {
         }
     } // namespace
 
+    std::string
+    DescribeAssetOperation(std::string_view message, AssetCommitState state, std::string_view stage, std::span<const AssetRecoveryIssue> recovery)
+    {
+        std::string result(message);
+        if (state == AssetCommitState::CommittedNeedsRepair)
+            result += "; committed, repair required";
+        else if (state == AssetCommitState::RollbackFailed)
+            result += "; rollback failed";
+        if (!stage.empty())
+            result += "; stage: " + std::string(stage);
+        for (const auto &issue : recovery)
+            result += "; " + issue.stage + " at " + issue.path.GetStr() + ": " + issue.status.message;
+        return result;
+    }
+
     FilePath ProductFilePath(const Uuid &uuid)
     {
         const auto name = uuid.ToString();
@@ -186,12 +201,15 @@ namespace sky {
         productChangeSerial.fetch_add(1, std::memory_order_release);
     }
 
-    ProductStatus AssetManager::SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundle)
+    ProductStatus
+    AssetManager::SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundle, const std::shared_ptr<const AssetPublicationGuard> &publication)
     {
-        return SaveProducts(std::array<AssetPtr, 1>{asset}, bundle);
+        return SaveProducts(std::array<AssetPtr, 1>{asset}, bundle, publication);
     }
 
-    ProductStatus AssetManager::SaveProducts(std::span<const AssetPtr> products, const ProductBundleKey &bundle)
+    ProductStatus AssetManager::SaveProducts(std::span<const AssetPtr>                           products,
+                                             const ProductBundleKey                             &bundle,
+                                             const std::shared_ptr<const AssetPublicationGuard> &publication)
     {
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
         if (products.empty() || products.size() > 4096)
@@ -207,10 +225,12 @@ namespace sky {
                 return status;
             encoded.emplace_back(std::move(output));
         }
-        return PublishProducts(encoded, bundle);
+        return PublishProducts(encoded, bundle, publication);
     }
 
-    ProductStatus AssetManager::SaveProductData(std::span<const AssetProductData> products, const ProductBundleKey &bundle)
+    ProductStatus AssetManager::SaveProductData(std::span<const AssetProductData>                   products,
+                                                const ProductBundleKey                             &bundle,
+                                                const std::shared_ptr<const AssetPublicationGuard> &publication)
     {
         std::lock_guard<std::recursive_mutex> loadLock(loadMutex);
         if (products.empty() || products.size() > 4096)
@@ -224,21 +244,56 @@ namespace sky {
                 return status;
             encoded.emplace_back(std::move(output));
         }
-        return PublishProducts(encoded, bundle);
+        return PublishProducts(encoded, bundle, publication);
     }
 
-    ProductStatus AssetManager::PublishProducts(std::span<const EncodedProduct> products, const ProductBundleKey &bundle)
+    ProductStatus AssetManager::PublishProducts(std::span<const EncodedProduct>                     products,
+                                                const ProductBundleKey                             &bundle,
+                                                const std::shared_ptr<const AssetPublicationGuard> &publication)
     {
         const auto *target = GetBundle(bundle);
         if (!target || products.empty() || products.size() > 4096 || target->GetFileSystem()->IsReadOnly())
             return {ProductError::InvalidData, "product publication requires a writable bundle and products"};
         const auto &filesystem = target->GetFileSystem();
+        struct IndexSelection {
+            std::string canonical;
+            Uuid        product;
+            Uuid        selected;
+            Uuid        observed;
+            bool        resolved;
+            bool        known;
+        };
+        std::vector<IndexSelection> selections;
+        if (sourceCatalog) {
+            AssetIndexFile observed("path", "");
+            if (const auto status = productIndices.Reload(filesystem, FilePath{}, observed); !status)
+                return FileStatus(status);
+            for (const auto &product : products) {
+                std::string path;
+                Uuid        owner;
+                if (!sourceCatalog->GetOwner(product.uuid, owner) || owner != product.uuid || !sourceCatalog->GetSourcePath(product.uuid, path))
+                    continue;
+                auto        canonical = MakeCanonicalPath(path);
+                Uuid        selected;
+                const bool  resolved = sourceCatalog->ResolvePath(canonical, selected);
+                const auto *entry    = observed.Find(canonical);
+                const auto  previous = entry ? entry->id : Uuid{};
+                const bool  known    = !previous || sourceCatalog->Exists(previous);
+                selections.push_back({std::move(canonical), product.uuid, selected, previous, resolved, known});
+            }
+        }
+        std::unique_ptr<AssetPublicationScope> sourceScope;
+        if (publication) {
+            if (const auto status = publication->Acquire(sourceScope); !status)
+                return status;
+        }
         FileLockPtr lock;
         if (const auto status = filesystem->AcquireFileLock("product.lock", lock); !status)
             return FileStatus(status);
         struct Output {
             const EncodedProduct *product = nullptr;
             FilePath              staging;
+            bool                  owned = false;
         };
         std::vector<Output>      outputs;
         std::unordered_set<Uuid> identities;
@@ -258,9 +313,13 @@ namespace sky {
                     if (const auto removed = filesystem->RemoveFile(path); !removed) {
                         status.error = ProductError::IOError;
                         status.message += "; cleanup failed: " + removed.message;
+                        status.recovery.push_back({"remove-product-file", filesystem->GetPath() / path, removed});
+                        if (invalidate)
+                            status.state = AssetCommitState::RollbackFailed;
                     }
                 };
-                remove(output.staging);
+                if (output.owned)
+                    remove(output.staging);
                 if (invalidate)
                     remove(ProductFilePath(output.product->uuid));
             }
@@ -268,9 +327,15 @@ namespace sky {
                 InvalidateProducts(published);
             return status;
         };
-        for (const auto &output : outputs) {
-            if (const auto status = filesystem->WriteFileExclusive(output.staging, output.product->bytes); !status)
-                return cleanup(FileStatus(status), false);
+        for (auto &output : outputs) {
+            if (const auto status = filesystem->WriteFileExclusive(output.staging, output.product->bytes); !status) {
+                auto failed  = FileStatus(status);
+                failed.stage = "stage-product";
+                if (status.error != FileOperationError::AlreadyExists && filesystem->FileExist(output.staging))
+                    failed.recovery.push_back({"stage-product", filesystem->GetPath() / output.staging, status});
+                return cleanup(std::move(failed), false);
+            }
+            output.owned              = true;
             const auto           file = filesystem->OpenFile(output.staging);
             std::vector<uint8_t> readback;
             if (!file || !file->ReadBin(readback) || readback != output.product->bytes)
@@ -278,32 +343,38 @@ namespace sky {
         }
         uint32_t replaced = 0;
         for (const auto &output : outputs) {
-            if (const auto status = filesystem->ReplaceFileAtomic(output.staging, ProductFilePath(output.product->uuid)); !status)
-                return cleanup(FileStatus(status), replaced != 0);
+            if (const auto status = filesystem->ReplaceFileAtomic(output.staging, ProductFilePath(output.product->uuid)); !status) {
+                auto failed  = FileStatus(status);
+                failed.stage = "replace-product";
+                failed.state = replaced ? AssetCommitState::CommittedNeedsRepair : AssetCommitState::NotCommitted;
+                return cleanup(std::move(failed), replaced != 0);
+            }
             ++replaced;
         }
         if (sourceCatalog) {
             std::lock_guard<std::recursive_mutex> guard(mutex);
             productIndices.Invalidate(filesystem, FilePath{});
-            auto index = productIndices.Get(filesystem, FilePath{});
-            for (const auto &product : products) {
-                std::string path;
-                Uuid        owner;
-                if (!sourceCatalog->GetOwner(product.uuid, owner) || owner != product.uuid || !sourceCatalog->GetSourcePath(product.uuid, path))
+            auto index = *productIndices.Get(filesystem, FilePath{});
+            for (const auto &selection : selections) {
+                const auto *current   = index.Find(selection.canonical);
+                const auto  currentId = current ? current->id : Uuid{};
+                // A newer worker may have published an overlay outside this catalog's snapshot.
+                if (currentId != selection.observed || !selection.known)
                     continue;
-                const auto canonical = MakeCanonicalPath(path);
-                Uuid       selected;
-                const bool resolved = sourceCatalog->ResolvePath(canonical, selected);
-                if (resolved && selected == product.uuid) {
-                    index.Set({canonical, product.uuid, {}});
-                } else if (const auto *entry = index.Find(canonical); entry && (!resolved || entry->id != selected)) {
-                    index.Remove(canonical);
+                if (selection.resolved && selection.selected == selection.product) {
+                    index.Set({selection.canonical, selection.product, {}});
+                } else if (const auto *entry = index.Find(selection.canonical); entry && (!selection.resolved || entry->id != selection.selected)) {
+                    index.Remove(selection.canonical);
                 }
             }
-            if (!productIndices.Save(filesystem, FilePath{}, index))
-                return cleanup({ProductError::IOError, "product index publication failed"}, true);
+            if (const auto saved = productIndices.Save(filesystem, FilePath{}, index); !saved) {
+                InvalidateProducts(published);
+                return cleanup({ProductError::IOError, "Products committed; product index requires repair: " + saved.status.message,
+                                AssetCommitState::CommittedNeedsRepair, "publish-product-index", saved.recovery},
+                               false);
+            }
         }
         InvalidateProducts(published);
-        return cleanup({}, false);
+        return cleanup({ProductError::None, {}, AssetCommitState::Committed}, false);
     }
 } // namespace sky

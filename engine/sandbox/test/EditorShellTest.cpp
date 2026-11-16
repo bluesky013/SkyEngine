@@ -1261,7 +1261,7 @@ namespace {
             if (databaseChanged) {
                 database->Reset();
                 database->SetWorkSpaceFs(previousWorkspace);
-                EXPECT_FALSE(database->RebuildCacheFromScan().has_value());
+                EXPECT_TRUE(database->RebuildCacheFromScan().Succeeded());
                 catalog->Refresh();
             }
             std::error_code ec;
@@ -1292,7 +1292,7 @@ TEST(EditorShellTest, AssetViewerMeasuresResponsiveContentAtItsFinalWidth)
     environment.databaseChanged = true;
     environment.database->Reset();
     environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
-    EXPECT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(environment.database->RebuildCacheFromScan().Succeeded());
     environment.catalog->Refresh();
     environment.providers->Register("Text", &provider);
 
@@ -1483,7 +1483,7 @@ TEST(EditorShellTest, AssetBrowserEditsCookSetting)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
@@ -1686,7 +1686,7 @@ TEST(EditorShellTest, AssetDocumentPreviewObjectDeterminesContentLayout)
     environment.databaseChanged = true;
     environment.database->Reset();
     environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
-    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    ASSERT_TRUE(environment.database->RebuildCacheFromScan().Succeeded());
     environment.catalog->Refresh();
     environment.providers->Register("Text", &provider);
     EditorAssetItem item;
@@ -1735,7 +1735,7 @@ TEST(EditorShellTest, AssetDocumentCloseAndReplacementWaitForDecisionAndDestroyC
     environment.databaseChanged = true;
     environment.database->Reset();
     environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
-    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    ASSERT_TRUE(environment.database->RebuildCacheFromScan().Succeeded());
     environment.catalog->Refresh();
     environment.providers->Register("Text", &provider);
     EditorAssetItem a, b;
@@ -1825,7 +1825,7 @@ TEST(EditorShellTest, AssetToolWindowsKeepActionsDocumentsAndCloseDecisionsIndep
     environment.databaseChanged = true;
     environment.database->Reset();
     environment.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(environment.root.string())));
-    ASSERT_FALSE(environment.database->RebuildCacheFromScan().has_value());
+    ASSERT_TRUE(environment.database->RebuildCacheFromScan().Succeeded());
     environment.catalog->Refresh();
     environment.providers->Register("Text", &provider);
     EditorAssetItem first, second;
@@ -2001,7 +2001,7 @@ TEST(EditorShellTest, TwoTimesAssetBrowserUsesThemeTextAndMatchingTreeAndTileHit
     }
     state.database->Reset();
     state.database->SetWorkSpaceFs(new sky::NativeFileSystem(sky::FilePath(state.root.string())));
-    ASSERT_FALSE(state.database->RebuildCacheFromScan().has_value());
+    ASSERT_TRUE(state.database->RebuildCacheFromScan().Succeeded());
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
     const auto one = catalog->ListFolder("Project/one");

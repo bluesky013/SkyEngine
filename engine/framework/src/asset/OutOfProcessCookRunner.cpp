@@ -6,6 +6,7 @@
 
 #include <core/logger/Logger.h>
 #include <core/thread/ThreadDispatcher.h>
+#include <framework/asset/AssetBuilderManager.h>
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetEvent.h>
 #include <framework/asset/CookProtocol.h>
@@ -47,6 +48,8 @@ namespace sky {
         if (handler) {
             handler(result);
         }
+        if (job.completion)
+            job.completion(result);
     }
 
     OutOfProcessCookRunner::OutOfProcessCookRunner(CookRunnerConfig inConfig) : config(std::move(inConfig))
@@ -168,8 +171,17 @@ namespace sky {
         }
     }
 
-    bool OutOfProcessCookRunner::Request(const CookJob &job)
+    bool OutOfProcessCookRunner::Request(const CookJob &input)
     {
+        auto job = input;
+        if (job.inputFingerprint.empty()) {
+            AssetBuildRequest captured;
+            if (const auto status = AssetBuilderManager::Get()->PrepareRequest(job.uuid, job.target, captured); !status) {
+                NotifyCompletion(job, AssetBuildRetCode::FAILED, status.Describe());
+                return false;
+            }
+            job.inputFingerprint = captured.inputFingerprint;
+        }
         // NotifyCompletion is invoked after releasing lifecycleMutex: a completion handler
         // must be free to call back into Request/Drain without deadlocking.
         const char *failure = nullptr;
@@ -206,6 +218,7 @@ namespace sky {
                 message.uuid        = job.uuid;
                 message.target      = job.target;
                 message.path        = job.path;
+                message.inputFingerprint = job.inputFingerprint;
 
                 if (!channel->WriteFrame(EncodeCookMessage(message))) {
                     std::lock_guard<std::mutex> lock(mutex);

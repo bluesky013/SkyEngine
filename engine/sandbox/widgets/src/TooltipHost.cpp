@@ -23,20 +23,6 @@ namespace sky::editor {
             return !a.owner_before(b) && !b.owner_before(a);
         }
 
-        sky::ui::UIElement *FindCapture(sky::ui::UIElement &element)
-        {
-            if (!element.IsVisible()) {
-                return nullptr;
-            }
-            const auto order = element.GetPaintOrder();
-            for (auto it = order.rbegin(); it != order.rend(); ++it) {
-                if (auto *captured = FindCapture(**it)) {
-                    return captured;
-                }
-            }
-            return element.WantsPointerCapture() ? &element : nullptr;
-        }
-
         sky::ui::UIRect AncestorClip(const sky::ui::UIElement &element)
         {
             const auto *root = &element;
@@ -101,6 +87,9 @@ namespace sky::editor {
         target = {};
         anchor = {};
         text.clear();
+        layout         = {};
+        layoutAtlas    = nullptr;
+        pointerChanged = true;
         elapsed = 0.0f;
         built   = false;
     }
@@ -126,6 +115,7 @@ namespace sky::editor {
         if (!built && (pointer.x != event.x || pointer.y != event.y)) {
             elapsed = 0.0f;
         }
+        pointerChanged = pointerChanged || pointer.x != event.x || pointer.y != event.y;
         pointer = {event.x, event.y};
         if (event.action == sky::ui::UIPointerAction::DOWN) {
             if (std::find(pressedButtons.begin(), pressedButtons.end(), event.button) == pressedButtons.end()) {
@@ -140,8 +130,21 @@ namespace sky::editor {
         }
     }
 
+    bool TooltipHost::Unchanged(const TooltipInteractionScope &scope) const
+    {
+        return !pointerChanged && rootReference.Get() == scope.root && captureReference.Get() == scope.captureRoot &&
+               previousScope.layoutRevision == scope.layoutRevision && previousScope.overlayRevision == scope.overlayRevision &&
+               previousScope.themeRevision == scope.themeRevision;
+    }
+
     void TooltipHost::Tick(sky::ui::UIElement *root, float delta)
     {
+        Tick({root, nullptr, root ? root->GetLayoutRevision() : 0, root ? root->GetPaintRevision() : 0, GetDefaultUiThemeRevision()}, delta);
+    }
+
+    void TooltipHost::Tick(const TooltipInteractionScope &scope, float delta)
+    {
+        auto *root = scope.root;
         if (!pointerActive || root == nullptr || !root->IsEffectivelyVisible()) {
             ClearTarget();
             rootReference = {};
@@ -151,7 +154,9 @@ namespace sky::editor {
             ClearTarget();
             rootReference = root->GetInputReference();
         }
-        auto     *capture    = FindCapture(*root);
+        if (built && Unchanged(scope) && owner.Get() && owner.Get()->IsEffectivelyVisible() && !target.lifetime.expired())
+            return;
+        auto     *capture    = scope.captureRoot;
         auto     *searchRoot = capture != nullptr ? capture : root;
         Candidate candidate;
         if (!FindTooltip(*searchRoot, pointer, capture != nullptr, candidate)) {
@@ -164,6 +169,9 @@ namespace sky::editor {
             target = candidate.target;
         }
         anchor = candidate.anchor;
+        previousScope    = scope;
+        captureReference = capture ? capture->GetInputReference() : sky::ui::UIElement::InputReference{};
+        pointerChanged   = false;
         if (built) {
             return;
         }
@@ -189,19 +197,28 @@ namespace sky::editor {
 
     void TooltipHost::ValidateRoot(sky::ui::UIElement *root)
     {
-        const auto *element = owner.Get();
-        if (rootReference.Get() != root || !root || !root->IsEffectivelyVisible() || !element || !element->IsEffectivelyVisible() ||
-            target.lifetime.expired()) {
+        ValidateRoot({root, nullptr, root ? root->GetLayoutRevision() : 0, root ? root->GetPaintRevision() : 0, GetDefaultUiThemeRevision()});
+    }
+
+    void TooltipHost::ValidateRoot(const TooltipInteractionScope &scope)
+    {
+        if (!owner.Get() || !scope.root || !scope.root->IsEffectivelyVisible() || !owner.Get()->IsEffectivelyVisible() || target.lifetime.expired()) {
             ClearTarget();
             return;
         }
+        if (Unchanged(scope))
+            return;
         Candidate candidate;
-        if (!QueryCandidate(*element, pointer, candidate) || rootReference.Get() != root || owner.Get() != candidate.owner.Get() ||
-            target.id != candidate.target.id || !SameToken(target.lifetime, candidate.target.lifetime)) {
+        auto     *root = scope.captureRoot ? scope.captureRoot : scope.root;
+        if (rootReference.Get() != scope.root || !FindTooltip(*root, pointer, scope.captureRoot != nullptr, candidate) ||
+            owner.Get() != candidate.owner.Get() || target.id != candidate.target.id || !SameToken(target.lifetime, candidate.target.lifetime)) {
             ClearTarget();
             return;
         }
         anchor = candidate.anchor;
+        previousScope    = scope;
+        captureReference = scope.captureRoot ? scope.captureRoot->GetInputReference() : sky::ui::UIElement::InputReference{};
+        pointerChanged   = false;
     }
 
     void TooltipHost::Paint(sky::ui::UIPaintContext &context, const sky::ui::UIRect &surfaceBounds, const UiSkin &skin)
@@ -220,7 +237,12 @@ namespace sky::editor {
             return;
         }
         auto      &atlas  = skin.Text()->GetAtlas();
-        const auto layout = sky::ui::UITextLayout::Build(text, theme.fonts.label, atlas, maxWidth, true);
+        if (layoutAtlas != &atlas || layoutWidth != maxWidth || layout.fontSize != theme.fonts.label || layoutTheme != GetDefaultUiThemeRevision()) {
+            layout      = sky::ui::UITextLayout::Build(text, theme.fonts.label, atlas, maxWidth, true);
+            layoutAtlas = &atlas;
+            layoutWidth = maxWidth;
+            layoutTheme = GetDefaultUiThemeRevision();
+        }
         if (layout.lines.empty()) {
             return;
         }

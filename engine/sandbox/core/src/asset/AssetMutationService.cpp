@@ -9,6 +9,7 @@
 #include <framework/asset/AssetDataBase.h>
 
 #include <core/file/FileSystem.h>
+#include <core/logger/Logger.h>
 
 #include <filesystem>
 #include <vector>
@@ -61,7 +62,9 @@ namespace sky::editor {
         }
         auto source = db->ImportAsset(sky::FilePath(sourceFile), sky::FilePath(relative), cook);
         EditorAssetCatalog::Get()->Refresh();
-        return source != nullptr ? source->uuid : Uuid{};
+        if (!source)
+            LOG_E("AssetMutation", "%s", source.Describe().c_str());
+        return source.source ? source.source->uuid : Uuid{};
     }
 
     bool AssetMutationService::Move(const std::string &from, const std::string &to)
@@ -75,11 +78,11 @@ namespace sky::editor {
         if (db == nullptr) {
             return false;
         }
-        const bool ok = db->MoveAsset(sky::FilePath(fromRel), sky::FilePath(toRel)) != nullptr;
-        if (ok) {
-            EditorAssetCatalog::Get()->Refresh();
-        }
-        return ok;
+        const auto result = db->MoveAsset(sky::FilePath(fromRel), sky::FilePath(toRel));
+        EditorAssetCatalog::Get()->Refresh();
+        if (!result)
+            LOG_E("AssetMutation", "%s", result.Describe().c_str());
+        return static_cast<bool>(result);
     }
 
     Uuid AssetMutationService::Duplicate(const std::string &from, const std::string &to)
@@ -95,10 +98,12 @@ namespace sky::editor {
         }
         auto source = db->DuplicateAsset(sky::FilePath(fromRel), sky::FilePath(toRel));
         EditorAssetCatalog::Get()->Refresh();
-        return source != nullptr ? source->uuid : Uuid{};
+        if (!source)
+            LOG_E("AssetMutation", "%s", source.Describe().c_str());
+        return source.source ? source.source->uuid : Uuid{};
     }
 
-    FileOperationStatus AssetMutationService::Delete(const Uuid &uuid)
+    AssetMutationResult AssetMutationService::Delete(const Uuid &uuid)
     {
         auto *db = sky::AssetDataBase::Get();
         if (!db)
@@ -115,27 +120,27 @@ namespace sky::editor {
         if (!WritableRelative(displayPath, relative) || contents.empty()) {
             return {FileOperationError::InvalidPath, "Generated source requires a writable mount and nonempty contents"};
         }
-        const std::filesystem::path logical(relative);
-        if (logical.is_absolute() || logical.has_root_name() || logical.lexically_normal().generic_string() != relative ||
-            relative.find('\\') != std::string::npos) {
-            return {FileOperationError::InvalidPath, "Generated source path must be canonical and mount-relative"};
-        }
-        for (const auto &part : logical) {
-            if (part == "..") {
-                return {FileOperationError::InvalidPath, "Generated source path escapes its mount"};
+        auto       *database = AssetDataBase::Get();
+        std::string displayMount;
+        std::string ignored;
+        SplitDisplay(displayPath, displayMount, ignored);
+        AssetDestination resolved;
+        for (const auto &mount : database->GetMounts()) {
+            if (mount.displayName == displayMount) {
+                if (const auto status = database->ResolveWritableDestination(FilePath(relative), resolved, mount.id); !status)
+                    return status;
+                break;
             }
         }
-        auto      *database   = AssetDataBase::Get();
-        const auto filesystem = database->GetWorkSpaceFs();
-        if (!filesystem || filesystem->IsReadOnly()) {
+        const auto filesystem = resolved.filesystem;
+        if (!filesystem)
             return {FileOperationError::InvalidPath, "Writable source filesystem is unavailable"};
-        }
         const FilePath destination(relative);
         FileLockPtr    writeLock;
         if (const auto status = filesystem->AcquireFileLock(FilePath(relative + ".authoring.lock"), writeLock); !status) {
             return status;
         }
-        const auto existing = database->FindAsset("workspace", destination);
+        const auto existing = database->FindAsset(resolved.mount, destination);
         if ((expectedOwner && (!existing || existing->uuid != expectedOwner)) ||
             (!expectedOwner && (existing || filesystem->FileExist(destination)))) {
             return {FileOperationError::AlreadyExists, "Generated source destination does not match the expected saved owner"};
@@ -145,37 +150,21 @@ namespace sky::editor {
             if (!EditorAssetCatalog::Get()->Find(existing->uuid, item) || !item.writable || item.path != displayPath) {
                 return {FileOperationError::InvalidPath, "Saved source no longer belongs to the selected writable mount"};
             }
-            if (const auto status = database->PersistSourceIdentity(existing->uuid); !status) {
-                return status;
-            }
+            if (const auto status = database->PersistSourceIdentity(existing->uuid); !status)
+                return {status.status.error, status.Describe()};
         }
-        const FilePath             temporary(relative + ".tmp-" + Uuid::Create().ToString());
         const std::vector<uint8_t> bytes(contents.begin(), contents.end());
-        if (const auto status = filesystem->WriteFileExclusive(temporary, bytes); !status) {
-            return status;
+        if (!existing) {
+            const auto created = database->CreateAsset(resolved.mount, destination, bytes);
+            EditorAssetCatalog::Get()->Refresh();
+            if (!created)
+                return {created.status.error, created.Describe()};
+            out = created.source->uuid;
+            return {};
         }
-        if (const auto status = filesystem->ReplaceFileAtomic(temporary, destination); !status) {
-            const auto cleanup = filesystem->RemoveFile(temporary);
-            return cleanup ? status : FileOperationStatus{cleanup.error, status.message + "; temporary cleanup failed: " + cleanup.message};
-        }
-        const auto source   = existing ? existing : database->RegisterAsset("workspace", destination, false);
-        const auto identity = existing ? FileOperationStatus{}
-                              : source ? database->PersistSourceIdentity(source->uuid)
-                                       : FileOperationStatus{FileOperationError::IOError, "Generated source registration failed"};
-        if (!identity) {
-            if (!existing) {
-                const auto removed = source ? database->RemoveAsset(source->uuid) : FileOperationStatus{};
-                const auto cleanup = filesystem->RemoveFile(destination);
-                EditorAssetCatalog::Get()->Refresh();
-                if (!cleanup) {
-                    return {cleanup.error, identity.message + "; new source cleanup failed: " + cleanup.message};
-                }
-                if (!removed)
-                    return {removed.error, identity.message + "; identity cleanup failed: " + removed.message};
-            }
-            return identity;
-        }
-        out = source->uuid;
+        if (const auto status = database->WriteSource(existing->uuid, contents); !status)
+            return {status.status.error, status.Describe()};
+        out = existing->uuid;
         EditorAssetCatalog::Get()->Refresh();
         return {};
     }

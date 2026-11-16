@@ -185,8 +185,8 @@ namespace sky::builder {
             return;
         }
         asset->Data() = std::move(data);
-        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle); !saved) {
-            result.error = saved.message;
+        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle, request.publication); !saved) {
+            result.error = saved.Describe();
             return;
         }
 

@@ -103,10 +103,15 @@ namespace sky {
         AssetPtr LoadAsset(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::AllowCook);
         // Includes lookup/validation IO; the host drains AssetExecutor before destroying this manager.
         std::shared_ptr<AssetLoadRequest> LoadAssetAsync(const Uuid &uuid, AssetLoadPolicy policy = AssetLoadPolicy::ProductsOnly);
-        ProductStatus                     SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
-        ProductStatus                     SaveProducts(std::span<const AssetPtr> products, const ProductBundleKey &bundleKey);
+        ProductStatus
+        SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey, const std::shared_ptr<const AssetPublicationGuard> &publication = {});
+        ProductStatus SaveProducts(std::span<const AssetPtr>                           products,
+                                   const ProductBundleKey                             &bundleKey,
+                                   const std::shared_ptr<const AssetPublicationGuard> &publication = {});
         // The producer validates its codec payload without requiring a runtime handler.
-        ProductStatus SaveProductData(std::span<const AssetProductData> products, const ProductBundleKey &bundleKey);
+        ProductStatus SaveProductData(std::span<const AssetProductData>                   products,
+                                      const ProductBundleKey                             &bundleKey,
+                                      const std::shared_ptr<const AssetPublicationGuard> &publication = {});
         AssetPtr      CreateBuildAsset(const Uuid &uuid, const Name &type) const;
 
         // Paths normalize lexically; invalid, missing or conflicting logical identities return an invalid UUID.
@@ -196,7 +201,9 @@ namespace sky {
             Uuid                 uuid;
             std::vector<uint8_t> bytes;
         };
-        ProductStatus PublishProducts(std::span<const EncodedProduct> products, const ProductBundleKey &bundleKey);
+        ProductStatus PublishProducts(std::span<const EncodedProduct>                     products,
+                                      const ProductBundleKey                             &bundleKey,
+                                      const std::shared_ptr<const AssetPublicationGuard> &publication);
         void          InvalidateProducts(std::span<const Uuid> products);
 
         std::unordered_map<Name, std::unique_ptr<AssetHandlerBase>> assetHandlers;

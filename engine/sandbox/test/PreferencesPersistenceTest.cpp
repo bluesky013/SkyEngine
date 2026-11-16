@@ -1,4 +1,5 @@
 #include "ReflectionTestEnvironment.h"
+#include <core/util/Uuid.h>
 #include <editor/core/preferences/PreferencesPersistence.h>
 #include <framework/serialization/SerializationContext.h>
 #include <gtest/gtest.h>
@@ -28,6 +29,10 @@ namespace sky::editor::preferences_persistence_test {
         std::vector<int32_t>     samples{1, 2};
         std::vector<std::string> searchPaths{"provider"};
         Nested                   nested;
+    };
+    struct AssetSettings {
+        Uuid first;
+        Uuid second;
     };
     struct UnsupportedSettings {
         std::unordered_map<std::string, int32_t> values{{"original", 7}};
@@ -105,6 +110,9 @@ namespace sky::editor::preferences_persistence_test {
                 .Member<&PluginSettings::samples>("samples")
                 .Member<&PluginSettings::searchPaths>("searchPaths")
                 .Member<&PluginSettings::nested>("nested");
+            context->Register<AssetSettings>("PreferencesPersistenceAssets")
+                .Member<&AssetSettings::first>("first")
+                .Member<&AssetSettings::second>("second");
             context->Register<UnsupportedSettings>("PreferencesPersistenceUnsupported").Member<&UnsupportedSettings::values>("values");
         });
 
@@ -143,6 +151,36 @@ namespace sky::editor::preferences_persistence_test {
         };
     } // namespace
 
+    TEST_F(PreferencesPersistenceTest, InvalidSecondUuidDoesNotApplyFirstUuid)
+    {
+        AssetSettings live{Uuid::Create(), Uuid::Create()};
+        const auto    original = live;
+        Add("assets", live);
+        PreferencesPersistence persistence(storage);
+        const auto             saved = Seed(persistence);
+        for (const bool wrongType : {false, true}) {
+            auto       document    = Parse(saved);
+            const auto replacement = Uuid::Create().ToString();
+            document["assets"]["elements"]["first"].SetString(replacement.c_str(), document.GetAllocator());
+            auto &second = document["assets"]["elements"]["second"];
+            if (wrongType)
+                second.SetInt(42);
+            else
+                second.SetString("invalid-uuid", document.GetAllocator());
+            storage->bytes    = Json(document);
+            const auto result = persistence.Load(*pages);
+            EXPECT_FALSE(result.Succeeded());
+            EXPECT_FALSE(result.HasPartialEffects());
+            EXPECT_EQ(live.first, original.first);
+            EXPECT_EQ(live.second, original.second);
+        }
+        auto document = Parse(saved);
+        document["assets"]["elements"].RemoveMember("second");
+        storage->bytes = Json(document);
+        EXPECT_TRUE(persistence.Load(*pages).Succeeded());
+        EXPECT_EQ(live.second, original.second);
+    }
+
     TEST_F(PreferencesPersistenceTest, PluginTypedNestedAndDeepValuesRoundTripWithoutNativeModules)
     {
         PluginSettings live;
@@ -150,9 +188,9 @@ namespace sky::editor::preferences_persistence_test {
         live.enabled        = false;
         live.scale          = 1.75f;
         live.quality        = Quality::Ultra;
-        live.path           = std::string(180, 'x') + " /插件/\"quoted\"\npath";
+        live.path           = std::string(180, 'x') + " /\u63d2\u4ef6/\"quoted\"\npath";
         live.samples        = {-7, 0, 42};
-        live.searchPaths    = {"assets/模型", std::string(100, 'q'), ""};
+        live.searchPaths    = {"assets/\u6a21\u578b", std::string(100, 'q'), ""};
         live.nested         = {false, std::string(90, 'n')};
         const auto expected = live;
         Add("plugin.render", live);

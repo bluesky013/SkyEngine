@@ -71,8 +71,8 @@ namespace sky::builder {
 
         data.rawData.storage = std::move(raw);
 
-        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle); !saved) {
-            result.error = saved.message;
+        if (const auto saved = manager->SaveAsset(asset, request.bundle.empty() ? request.target : request.bundle, request.publication); !saved) {
+            result.error = saved.Describe();
             return;
         }
         result.retCode = AssetBuildRetCode::SUCCESS;

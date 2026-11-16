@@ -193,21 +193,21 @@ namespace sky::editor {
         root.AddChild(std::move(layout));
         TooltipHost host;
         Move(host, 30, 70);
-        host.Tick(&root, 0.51f);
+        host.Tick({&root, popup.capture ? &popup : nullptr, root.GetLayoutRevision(), root.GetPaintRevision(), 0}, 0.51f);
         ASSERT_TRUE(host.IsVisible());
         EXPECT_EQ(popup.builds, 1u);
         EXPECT_EQ(behind.builds, 0u);
 
         Move(host, 30, 120);
-        host.Tick(&root, 1.0f);
+        host.Tick({&root, &popup, root.GetLayoutRevision(), root.GetPaintRevision(), 0}, 1.0f);
         EXPECT_FALSE(host.IsVisible());
         EXPECT_EQ(behind.builds, 0u);
         popup.capture = false;
-        host.Tick(&root, 0.51f);
+        host.Tick({&root, popup.capture ? &popup : nullptr, root.GetLayoutRevision(), root.GetPaintRevision(), 0}, 0.51f);
         EXPECT_FALSE(host.IsVisible());
         EXPECT_EQ(behind.builds, 0u);
         root.GetChildren().back()->SetVisible(false);
-        host.Tick(&root, 0.51f);
+        host.Tick({&root, popup.capture ? &popup : nullptr, root.GetLayoutRevision(), root.GetPaintRevision(), 0}, 0.51f);
         EXPECT_TRUE(host.IsVisible());
         EXPECT_EQ(behind.builds, 1u);
     }
@@ -378,5 +378,23 @@ namespace sky::editor {
         host.ValidateRoot(&root);
         EXPECT_FALSE(host.IsVisible());
         EXPECT_EQ(probe.builds, 1u);
+    }
+} // namespace sky::editor
+
+namespace sky::editor {
+    TEST(TooltipHostTest, PaintRejectsNewOcclusionWithoutPointerMotion)
+    {
+        ui::UIElement root;
+        root.SetBounds({0, 0, 600, 400});
+        AddProbe(root, {20, 20, 220, 50});
+        TooltipHost host;
+        Move(host, 30, 30);
+        host.Tick(&root, .51f);
+        ASSERT_TRUE(host.IsVisible());
+        auto cover = std::make_unique<ui::UIElement>();
+        cover->SetBounds({20, 20, 220, 50});
+        root.AddChild(std::move(cover));
+        host.ValidateRoot(&root);
+        EXPECT_FALSE(host.IsVisible());
     }
 } // namespace sky::editor

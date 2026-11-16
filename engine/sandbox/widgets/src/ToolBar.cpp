@@ -4,6 +4,8 @@
 
 #include <editor/widgets/ToolBar.h>
 
+#include "PackedTooltipId.h"
+
 #include <editor/ui/UiDraw.h>
 #include <editor/ui/UiTheme.h>
 #include <editor/widgets/UiSkin.h>
@@ -187,15 +189,16 @@ namespace sky::editor {
         const auto index = ItemAt(x, y);
         if (tabStyle || index < 0 || items[static_cast<size_t>(index)].label.empty())
             return false;
-        out = {(itemsGeneration << 32) | (static_cast<uint32_t>(index) + 1), ItemRect(static_cast<size_t>(index)), GetInputReference().lifetime};
+        out = {PackTooltipId(static_cast<uint32_t>(itemsGeneration), static_cast<uint32_t>(index) + 1), ItemRect(static_cast<size_t>(index)),
+               GetInputReference().lifetime};
         return true;
     }
 
     bool ToolBar::BuildTooltip(uint64_t id, std::string &out) const
     {
-        const auto index = static_cast<uint32_t>(id);
-        if (tabStyle || (id >> 32) != itemsGeneration || !index || index > items.size() || !items[index - 1].visible ||
-            items[index - 1].label.empty())
+        const auto index = TooltipOrdinal(id);
+        if (tabStyle || !TooltipGenerationMatches(id, static_cast<uint32_t>(itemsGeneration)) || !index || index > items.size() ||
+            !items[index - 1].visible || items[index - 1].label.empty())
             return false;
         out = items[index - 1].label;
         return true;

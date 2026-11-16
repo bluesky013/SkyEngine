@@ -203,15 +203,19 @@ int main(int argc, char **argv)
     }
 
     // Populate the source catalog (needs builders registered by the modules above).
-    if (const auto error = AssetDataBase::Get()->Load()) {
-        LOG_E(TAG, "asset scan failed at '%s': %s", error->path.GetStr().c_str(), error->code.message().c_str());
+    if (const auto error = AssetDataBase::Get()->Load(); !error.Succeeded()) {
+        LOG_E(TAG, "asset scan failed at '%s': %s", error.errors.front().path.GetStr().c_str(), error.errors.front().code.message().c_str());
         return 1;
     }
 
     // One-shot identity migration (`--migrate`): seed legacy UUIDs, then exit (no IPC host loop).
     if (app.MigrateRequested()) {
-        if (const auto error = AssetDataBase::Get()->MigrateLegacyIdentity()) {
-            LOG_E(TAG, "identity migration scan failed at '%s': %s", error->path.GetStr().c_str(), error->code.message().c_str());
+        if (const auto report = AssetDataBase::Get()->MigrateLegacyIdentity(); !report.Complete()) {
+            if (!report.errors.empty())
+                LOG_E(TAG, "identity migration scan failed at '%s': %s", report.errors.front().path.GetStr().c_str(),
+                      report.errors.front().code.message().c_str());
+            else
+                LOG_E(TAG, "identity migration skipped %zu blocked directories", report.blockedDirs.size());
             return 1;
         }
         LOG_I(TAG, "legacy identity migration complete");

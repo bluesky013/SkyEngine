@@ -42,10 +42,7 @@ namespace sky::editor {
             }
         }
         Reset();
-        const auto add = [this](PreferencePage page) {
-            registry.Add(std::move(page));
-            registrations.push_back(registry.GetPages().back().registration);
-        };
+        const auto     add = [this](PreferencePage page) { registrations.push_back(registry.Add(std::move(page))); };
         PreferencePage generalPage{"general", "General (stored only)", &general, GetTypeNode(TypeInfo<GeneralSettings>::RegisteredId())};
         generalPage.validate = [](const PreferencePage &candidate) {
             const auto &value = *static_cast<const GeneralSettings *>(candidate.object);

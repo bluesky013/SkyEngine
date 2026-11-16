@@ -34,6 +34,7 @@ namespace sky::editor {
         struct Session {
             AssetPreviewScene                          input;
             AssetPreviewHandle                         handle;
+            Uuid                                       groundMesh, groundMaterial;
             aurora::RenderSceneProxy                   scene;
             std::unique_ptr<aurora::RenderSceneBridge> bridge;
             std::unique_ptr<Actor>                     ground, keyLight, fillLight;

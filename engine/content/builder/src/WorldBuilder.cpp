@@ -50,9 +50,9 @@ namespace sky::builder {
             if (dependencies.insert(root.uuid).second)
                 AddAssetDependency(asset, request, root.uuid);
         }
-        const auto saved = manager->SaveAsset(asset, request.bundle);
+        const auto saved = manager->SaveAsset(asset, request.bundle, request.publication);
         if (!saved) {
-            result.error = saved.message;
+            result.error = saved.Describe();
             return;
         }
         result.retCode = AssetBuildRetCode::SUCCESS;

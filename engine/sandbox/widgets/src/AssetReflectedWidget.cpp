@@ -4,6 +4,8 @@
 
 #include <editor/widgets/AssetReflectedWidget.h>
 
+#include "PackedTooltipId.h"
+
 #include <editor/core/command/CommandService.h>
 #include <editor/ui/UiDraw.h>
 
@@ -140,7 +142,7 @@ namespace sky::editor {
             return false;
         for (size_t i = 0; i < itemRects.size(); ++i) {
             if (itemRects[i].Contains(x, y)) {
-                out = {(uint64_t(popupGeneration) << 32) | (firstItem + i + 1), itemRects[i], {}};
+                out = {PackTooltipId(popupGeneration, static_cast<uint32_t>(firstItem + i + 1)), itemRects[i], {}};
                 return true;
             }
         }
@@ -149,8 +151,8 @@ namespace sky::editor {
 
     bool AssetReflectedWidget::BuildPopupTooltip(uint64_t id, std::string &out) const
     {
-        const auto index = static_cast<uint32_t>(id);
-        if (!openField || (id >> 32) != popupGeneration || !index || index > items.size())
+        const auto index = TooltipOrdinal(id);
+        if (!openField || !TooltipGenerationMatches(id, popupGeneration) || !index || index > items.size())
             return false;
         return FormatTooltip(items[index - 1].uuid, openField->control.assetType, out);
     }

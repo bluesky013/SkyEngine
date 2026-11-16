@@ -2,11 +2,12 @@
 // Created on 2026/10/04.
 //
 
+#include <editor/core/property/ReflectedForm.h>
+
 #include <algorithm>
 #include <core/type/TypeInfo.h>
 #include <cstring>
 #include <editor/core/property/PropertyDefaults.h>
-#include <editor/core/property/ReflectedForm.h>
 #include <utility>
 
 namespace sky::editor {
@@ -101,15 +102,15 @@ namespace sky::editor {
         roots.push_back({object, prefix});
 
         // Capture defaults before constructing live fields, including nested inline Any values.
-        PropertyObject base;
-        Any            typeDefault;
+        PropertyObject        base;
+        DefaultPropertyObject typeDefault{nullptr, nullptr};
         if (baseline != nullptr && baseline->object != nullptr && baseline->type != nullptr) {
             base = *baseline;
         } else {
             const sky::TypeInfoRT *info = (object.type != nullptr) ? object.type->info : nullptr;
-            typeDefault                 = MakeDefaultValue(info);
-            if (typeDefault.Data() != nullptr && typeDefault.Data() != object.object) {
-                base = PropertyObject{typeDefault.Data(), object.type};
+            typeDefault                 = MakeDefaultObject(info);
+            if (typeDefault.get() != nullptr && typeDefault.get() != object.object) {
+                base = PropertyObject{typeDefault.get(), object.type};
             }
         }
 

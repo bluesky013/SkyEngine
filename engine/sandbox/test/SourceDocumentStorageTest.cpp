@@ -44,7 +44,7 @@ namespace sky::editor {
                 database->Reset();
                 database->SetWorkSpaceFs(previousWorkspace);
                 if (previousWorkspace)
-                    EXPECT_FALSE(database->RebuildCacheFromScan().has_value());
+                    EXPECT_TRUE(database->RebuildCacheFromScan().Succeeded());
                 if (!root.empty()) {
                     std::error_code error;
                     fs::permissions(root, fs::perms::owner_all, fs::perm_options::add, error);

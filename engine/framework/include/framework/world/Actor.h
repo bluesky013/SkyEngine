@@ -45,6 +45,10 @@ namespace sky {
         {
         }
         ~Actor();
+        const Uuid &GetIncarnation() const
+        {
+            return incarnation;
+        }
 
         using ComponentPtr = std::unique_ptr<ComponentBase>;
 
@@ -133,6 +137,7 @@ namespace sky {
         // Ordered by component type id: deterministic, stable iteration for Tick and serialization.
         std::map<Uuid, ComponentPtr> storage;
 
+        const Uuid  incarnation = Uuid::Create();
         Uuid        uuid;
         std::string name;
 

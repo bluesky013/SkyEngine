@@ -6,7 +6,10 @@
 
 #include <core/file/FileSystem.h>
 #include <core/util/Uuid.h>
+#include <framework/asset/JsonLines.h>
+#include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -21,6 +24,11 @@ namespace sky {
         std::string generated;
     };
 
+    struct IndexLineError {
+        size_t      line = 0;
+        std::string message;
+    };
+
     // Sorted, keyed JSON-Lines file (one JSON object per line). Field names are configurable
     // so one implementation backs both source manifests (file/cook) and product indexes (path).
     class AssetIndexFile {
@@ -29,10 +37,22 @@ namespace sky {
 
         void                Parse(const std::string &text);
         FileOperationStatus ParseChecked(const std::string &text);
+        void                ParsePartial(const std::string &text);
         std::string         Serialize() const;
 
+        bool IsComplete() const
+        {
+            return errors.empty();
+        }
+        const std::vector<IndexLineError> &Errors() const
+        {
+            return errors;
+        }
+
+        // Views require the owning snapshot; mutating a candidate invalidates its views.
         const IndexFileEntry *Find(std::string_view key) const;
         void                  Set(const IndexFileEntry &entry);
+        void                  SetEntries(std::span<const IndexFileEntry> values);
         bool                  Remove(std::string_view key);
 
         const std::vector<IndexFileEntry> &Entries() const
@@ -46,13 +66,13 @@ namespace sky {
 
         static AssetIndexFile      Load(const FileSystemPtr &fs, const FilePath &path, std::string keyField, std::string extraField = {});
         static FileOperationStatus LoadChecked(const FileSystemPtr &fs, const FilePath &path, AssetIndexFile &out);
-        static bool                Save(const FileSystemPtr &fs, const FilePath &path, const AssetIndexFile &file);
+        static AssetFileWriteResult Save(const FileSystemPtr &fs, const FilePath &path, const AssetIndexFile &file);
 
     private:
-        FileOperationStatus         ParseImpl(const std::string &text, bool strict);
         std::string                 keyField;
         std::string                 extraField;
         std::vector<IndexFileEntry> entries; // sorted by key
+        std::vector<IndexLineError> errors;
     };
 
     // Parsed-file cache keyed by (filesystem, directory).
@@ -60,21 +80,29 @@ namespace sky {
     public:
         AssetIndexFileCache(std::string fileName, std::string keyField, std::string extraField = {});
 
-        const AssetIndexFile &Get(const FileSystemPtr &fs, const FilePath &dir);
-        FileOperationStatus   Reload(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile &out);
-        bool                  Save(const FileSystemPtr &fs, const FilePath &dir, const AssetIndexFile &file);
-        void                  Set(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile file);
-        void                  Invalidate(const FileSystemPtr &fs, const FilePath &dir);
-        void                  Clear();
+        using Snapshot = std::shared_ptr<const AssetIndexFile>;
+        Snapshot             Get(const FileSystemPtr &fs, const FilePath &dir);
+        FileOperationStatus  Reload(const FileSystemPtr &fs, const FilePath &dir, AssetIndexFile &out);
+        AssetFileWriteResult Save(const FileSystemPtr &fs, const FilePath &dir, const AssetIndexFile &file);
+        void                 Invalidate(const FileSystemPtr &fs, const FilePath &dir);
+        void                 Clear();
 
     private:
-        std::string MakeKey(const FileSystemPtr &fs, const FilePath &dir) const;
+        struct Slot {
+            explicit Slot(FileSystemPtr owner) : filesystem(std::move(owner))
+            {
+            }
+            FileSystemPtr filesystem;
+            std::mutex    mutex;
+            Snapshot      snapshot;
+        };
+        std::shared_ptr<Slot> GetSlot(const FileSystemPtr &fs, const FilePath &dir);
 
-        std::string                                     fileName;
-        std::string                                     keyField;
-        std::string                                     extraField;
-        std::mutex                                      mutex;
-        std::unordered_map<std::string, AssetIndexFile> files;
+        std::string                                                                               fileName;
+        std::string                                                                               keyField;
+        std::string                                                                               extraField;
+        std::mutex                                                                                mutex;
+        std::unordered_map<IFileSystem *, std::unordered_map<std::string, std::shared_ptr<Slot>>> files;
     };
 
     // Canonical logical path (forward slashes) used as an index key across platforms.

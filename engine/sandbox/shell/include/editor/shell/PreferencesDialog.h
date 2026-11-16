@@ -27,6 +27,13 @@ namespace sky::editor {
 
     class ReflectedFormView;
 
+    struct SettingsTarget {
+        PreferencePageRegistry                 *registry = nullptr;
+        std::shared_ptr<PreferencesPersistence> persistence;
+        std::string                             title = "Preferences";
+        std::function<void()>                   onApplied;
+    };
+
     // Modal Preferences dialog: a category list (registered pages) on the left and the selected
     // page rendered by a ReflectedFormView on the right. Edits go through the reflected form
     // (undoable); OK/Apply write the owned working copies, Cancel discards them, Reset restores
@@ -42,6 +49,7 @@ namespace sky::editor {
         }
 
         void SetModel(PreferencePageRegistry *inRegistry);
+        void RequestTarget(SettingsTarget target);
         void SetTitle(std::string value)
         {
             title = std::move(value);
@@ -134,7 +142,8 @@ namespace sky::editor {
 
         // Declared before child destruction is forced in ~PreferencesDialog.
         std::shared_ptr<PreferencesSession> session = std::make_shared<PreferencesSession>();
-        enum class Pending { None, Open, Close, Model };
+        enum class Pending { None, Open, Close, Model, Target };
+        SettingsTarget          pendingTarget;
         Pending                 pending         = Pending::None;
         PreferencePageRegistry *pendingRegistry = nullptr;
         bool                    transitioning   = false;

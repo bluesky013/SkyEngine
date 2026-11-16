@@ -1,9 +1,12 @@
 #include <aurora/adaptor/assets/MeshAsset.h>
+#include <aurora/adaptor/assets/SceneAssets.h>
 #include <aurora/adaptor/assets/SkeletonAsset.h>
 #include <aurora/adaptor/assets/SkinAsset.h>
 #include <aurora/cook/mesh/AuroraMeshBuilder.h>
 #include <aurora/cook/mesh/MeshAuthoringCompiler.h>
 #include <aurora/cook/mesh/MeshBuildConfig.h>
+#include <aurora/cook/mesh/MeshProcess.h>
+#include <framework/asset/AssetDataBase.h>
 #include <framework/asset/AssetManager.h>
 #include <gtest/gtest.h>
 #include <physics/softbody/IMeshAuthoringCompiler.h>
@@ -322,4 +325,49 @@ TEST(MeshAuthoringCompilerTest, SharedPolicyRejectsMalformedConfigAndMissingFile
     ASSERT_EQ(presets->bundles.size(), 1u);
     EXPECT_FALSE(presets->bundles.at("common").defaultMaterial);
     EXPECT_TRUE(compiler->ResolveMaterials("common", 1, supplied, out));
+}
+
+TEST(MeshAuthoringCompilerTest, EngineFallbackOnlyQueriesRegisteredIdentity)
+{
+    std::error_code error;
+    const auto      root = std::filesystem::temp_directory_path(error) / ("sky-mesh-fallback-" + Uuid::Create().ToString());
+    ASSERT_FALSE(error);
+    auto *database = AssetDataBase::Get();
+    struct Cleanup {
+        AssetDataBase        *database;
+        std::filesystem::path root;
+        ~Cleanup()
+        {
+            database->Reset();
+            database->SetEngineFs({});
+            database->SetWorkSpaceFs({});
+            std::error_code error;
+            std::filesystem::remove_all(root, error);
+            EXPECT_FALSE(error);
+        }
+    } cleanup{database, root};
+    database->Reset();
+    const NativeFileSystemPtr engine  = new NativeFileSystem(FilePath(root / "engine"));
+    const FileSystemPtr       project = new NativeFileSystem(FilePath(root / "project"));
+    database->SetEngineFs(engine);
+    database->SetWorkSpaceFs(project);
+    const auto     engineAssets = database->GetEngineFs();
+    const FilePath path(scene_assets::UNLIT);
+    ASSERT_TRUE(engineAssets->WriteFileExclusive(path, std::vector<uint8_t>{'{', '}'}));
+    const auto        previous = Uuid::Create();
+    std::vector<Uuid> slots{previous};
+    EXPECT_FALSE(cook::ResolveMeshMaterials({}, 2, {}, slots));
+    EXPECT_EQ(slots, std::vector<Uuid>{previous});
+    EXPECT_FALSE(database->FindAsset("engine", path));
+    const auto builtin = database->RegisterAsset("engine", path, false);
+    ASSERT_NE(builtin, nullptr);
+    ASSERT_TRUE(project->WriteFileExclusive(path, std::vector<uint8_t>{'{', '}'}));
+    const auto overlay = database->RegisterAsset(path, false);
+    ASSERT_NE(overlay, nullptr);
+    ASSERT_NE(overlay->uuid, builtin->uuid);
+    ASSERT_TRUE(engineAssets->RemoveFile(path));
+    EXPECT_TRUE(cook::ResolveMeshMaterials({}, 2, {}, slots));
+    EXPECT_EQ(slots, std::vector<Uuid>(2, builtin->uuid));
+    EXPECT_FALSE(engineAssets->FileExist(path.Parent() / FilePath("assets.jsonl")));
+    EXPECT_FALSE(engineAssets->FileExist(path.Parent() / FilePath("assets.jsonl.lock")));
 }

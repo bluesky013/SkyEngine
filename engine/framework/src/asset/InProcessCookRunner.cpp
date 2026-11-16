@@ -22,13 +22,15 @@ namespace sky {
         }
         // BuildRequest schedules on the asset/cook pool, broadcasts
         // IAssetEvent::OnAssetBuildFinished, and invokes our completion handler.
-        manager->BuildRequest(job.uuid, job.target, [handler = completion, requestId = job.requestId](const AssetBuildResult &value) {
-            if (handler) {
-                auto result      = value;
-                result.requestId = requestId;
-                handler(result);
-            }
-        });
+        manager->BuildRequest(job.uuid, job.target,
+                              [handler = completion, requestId = job.requestId, subscriber = job.completion](const AssetBuildResult &value) {
+                                  auto result      = value;
+                                  result.requestId = requestId;
+                                  if (handler)
+                                      handler(result);
+                                  if (subscriber)
+                                      subscriber(result);
+                              });
         return true;
     }
 

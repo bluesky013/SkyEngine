@@ -662,7 +662,8 @@ namespace sky {
         std::lock_guard<std::recursive_mutex> lock(mutex);
         Uuid                                  resolved;
         for (const auto &bundle : bundles) {
-            const auto *entry = productIndices.Get(bundle->GetFileSystem(), FilePath{}).Find(canonical);
+            const auto  snapshot = productIndices.Get(bundle->GetFileSystem(), FilePath{});
+            const auto *entry    = snapshot->Find(canonical);
             if (!entry)
                 continue;
             if (resolved && resolved != entry->id) {

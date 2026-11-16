@@ -4,12 +4,14 @@
 
 #include "CookWorkerHost.h"
 
-#include <framework/asset/CookProtocol.h>
-#include <framework/asset/CookWorker.h>
-#include <framework/ipc/FrameChannel.h>
-#include <framework/platform/PlatformBase.h>
 #include <core/logger/Logger.h>
 #include <core/platform/Platform.h>
+#include <framework/asset/AssetBuilderManager.h>
+#include <framework/asset/AssetDataBase.h>
+#include <framework/asset/CookProtocol.h>
+#include <framework/ipc/FrameChannel.h>
+#include <framework/platform/PlatformBase.h>
+#include <future>
 
 #include <chrono>
 #include <thread>
@@ -222,9 +224,23 @@ namespace sky {
                 }
                 break;
             case CookMessageType::Cook: {
-                CookWorker worker;
-                worker.CookBatch({{message.uuid, message.target}});
-                SendResult(message.id, message.uuid, message.target, 0, {});
+                const auto source = AssetDataBase::Get()->CaptureSource(message.uuid);
+                if (!source.source || source.source->path.GetStr() != message.path) {
+                    const auto scan = AssetDataBase::Get()->RebuildCacheFromScan();
+                    if (!scan.Complete())
+                        LOG_W(TAG, "Source refresh completed with blocked directories");
+                }
+                AssetBuildRequest request;
+                const auto        status = AssetBuilderManager::Get()->PrepareRequest(message.uuid, message.target, request);
+                if (!status || message.inputFingerprint.empty() || request.inputFingerprint != message.inputFingerprint) {
+                    SendResult(message.id, message.uuid, message.target, 1, status ? "Cook input changed since submission" : status.Describe());
+                    break;
+                }
+                std::promise<AssetBuildResult> completion;
+                auto                           result = completion.get_future();
+                AssetBuilderManager::Get()->BuildRequest(request, [&completion](const AssetBuildResult &value) { completion.set_value(value); });
+                const auto completed = result.get();
+                SendResult(message.id, message.uuid, message.target, completed.retCode == AssetBuildRetCode::SUCCESS ? 0 : 1, completed.error);
                 break;
             }
             case CookMessageType::Ping: {

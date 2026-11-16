@@ -510,7 +510,7 @@ namespace sky::editor {
             surface.view->ArrangeIfNeeded(sky::ui::UIRect{0.0f, 0.0f, inWidth, inHeight});
         }
         surface.context->Paint(paintContext);
-        surface.tooltip.ValidateRoot(TooltipRoot(surfaceId));
+        surface.tooltip.ValidateRoot(TooltipScope(surfaceId));
         surface.tooltip.Paint(paintContext, {0.0f, 0.0f, inWidth, inHeight}, UiSkin(GetDefaultUiTheme(), textSystem));
     }
 
@@ -1205,20 +1205,13 @@ namespace sky::editor {
 
         auto preferences   = std::make_unique<PreferencesDialog>(textSystem);
         preferencesElement = preferences.get();
-        preferences->SetModel(preferencesOpen ? openedSettingsRegistry : preferenceRegistry);
-        preferences->SetPersistence(preferencesOpen ? openedSettingsPersistence : preferencesPersistence);
-        preferences->SetTitle(preferencesOpen ? openedSettingsTitle : "Preferences");
-        preferences->SetOnApplied([this]() {
-            auto callback = openedSettingsApplied;
-            if (callback) {
-                callback();
-            }
+        preferences->SetOnClosed([this]() {
+            preferencesOpen = false;
+            openedSettings  = {};
         });
-        preferences->SetOnClosed([this]() { preferencesOpen = false; });
         context->AddChild(std::move(preferences));
-        if (preferencesOpen) {
-            preferencesElement->Open();
-        }
+        if (preferencesOpen)
+            preferencesElement->RequestTarget(openedSettings);
 
         auto newWorld   = std::make_unique<NewWorldDialog>(textSystem);
         newWorldElement = newWorld.get();
@@ -1381,19 +1374,20 @@ namespace sky::editor {
 
     void EditorShell::SetPreferences(PreferencePageRegistry *registry, std::function<void()> onApplied)
     {
+        const bool replacesOpen = !registry || (preferencesOpen && openedSettings.registry == preferenceRegistry);
         preferenceRegistry = registry;
         preferencesApplied = std::move(onApplied);
-        if (preferencesElement != nullptr) {
-            preferencesElement->SetModel(preferenceRegistry);
+        if (replacesOpen) {
+            openedSettings  = {};
+            preferencesOpen = false;
+            if (preferencesElement)
+                preferencesElement->RequestTarget({});
         }
     }
 
     void EditorShell::SetPreferencesPersistence(std::shared_ptr<PreferencesPersistence> persistence)
     {
         preferencesPersistence = std::move(persistence);
-        if (preferencesElement != nullptr) {
-            preferencesElement->SetPersistence(preferencesPersistence);
-        }
     }
 
     void EditorShell::OpenPreferences()
@@ -1414,38 +1408,12 @@ namespace sky::editor {
                                    std::string                             title,
                                    std::function<void()>                   onApplied)
     {
-        if (!preferencesElement)
-            return;
-        auto      *dialog     = preferencesElement;
-        const auto reference  = dialog->GetInputReference();
-        const auto lifetime   = std::weak_ptr<void>(actionLifetime);
-        const auto generation = chromeGeneration;
-        const auto current    = [this, reference, lifetime, generation, dialog] {
-            return !lifetime.expired() && reference.Get() == dialog && generation == chromeGeneration && preferencesElement == dialog;
-        };
-        if (dialog->IsOpen() && registry != openedSettingsRegistry) {
-            dialog->Close();
-            if (!current())
-                return;
+        openedSettings  = {registry, std::move(persistence), std::move(title), std::move(onApplied)};
+        preferencesOpen = registry != nullptr;
+        if (preferencesElement) {
+            preferencesElement->Arrange({0.f, 0.f, width, height});
+            preferencesElement->RequestTarget(openedSettings);
         }
-        openedSettingsRegistry    = registry;
-        openedSettingsPersistence = persistence;
-        openedSettingsApplied     = std::move(onApplied);
-        openedSettingsTitle       = std::move(title);
-        dialog->SetTitle(openedSettingsTitle);
-        dialog->SetOnApplied(openedSettingsApplied);
-        dialog->SetPersistence(std::move(persistence));
-        dialog->SetModel(registry);
-        if (!current())
-            return;
-        preferencesOpen = true;
-        dialog->Arrange({0.f, 0.f, width, height});
-        if (!current())
-            return;
-        dialog->Open();
-        if (!current())
-            return;
-        dialog->Arrange({0.f, 0.f, width, height});
     }
 
     bool EditorShell::IsPreferencesOpen() const
@@ -1668,7 +1636,7 @@ namespace sky::editor {
     void EditorShell::Paint(sky::ui::UIPaintContext &paintContext)
     {
         context->Paint(paintContext);
-        tooltip.ValidateRoot(TooltipRoot(0));
+        tooltip.ValidateRoot(TooltipScope(0));
         tooltip.Paint(paintContext, {0.0f, 0.0f, width, height}, UiSkin(GetDefaultUiTheme(), textSystem));
     }
 
@@ -1692,14 +1660,39 @@ namespace sky::editor {
         return ActiveModal() == nullptr ? surface.context->GetRoot() : nullptr;
     }
 
+    TooltipInteractionScope EditorShell::TooltipScope(uint32_t surfaceId) const
+    {
+        auto *root = TooltipRoot(surfaceId);
+        if (!root)
+            return {};
+        const auto found   = surfaces.find(surfaceId);
+        auto      *router  = surfaceId == 0 ? eventRouter.get() : found != surfaces.end() ? found->second.router.get() : nullptr;
+        auto      *capture = router ? router->GetCapture() : nullptr;
+        if (surfaceId && found != surfaces.end() && found->second.assetTool && found->second.assetTool->WantsPointerCapture())
+            capture = found->second.assetTool;
+        if (root->WantsPointerCapture())
+            capture = root;
+        if (capture) {
+            auto *ancestor = capture;
+            while (ancestor && ancestor != root)
+                ancestor = ancestor->GetParent();
+            if (!ancestor)
+                capture = nullptr;
+        }
+        auto *tree = root;
+        while (tree->GetParent())
+            tree = tree->GetParent();
+        return {root, capture, tree->GetLayoutRevision(), tree->GetPaintRevision(), GetDefaultUiThemeRevision()};
+    }
+
     void EditorShell::TickTooltips(float delta)
     {
         const float scale = GetSurfaceUiScale(activeInputSurface);
         if (GetDefaultUiTheme().scale != scale)
             SetDefaultUiTheme(MakeDarkTheme(scale));
-        tooltip.Tick(TooltipRoot(0), delta);
+        tooltip.Tick(TooltipScope(0), delta);
         for (auto &[id, surface] : surfaces)
-            surface.tooltip.Tick(TooltipRoot(id), delta);
+            surface.tooltip.Tick(TooltipScope(id), delta);
     }
 
     void EditorShell::CancelTooltip(uint32_t surfaceId)

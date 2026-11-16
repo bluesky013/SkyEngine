@@ -763,10 +763,10 @@ TEST_P(RendererRuntimeTest, OpaqueQueueMixesUnlitLitAndCustomPrograms)
     auto packet                                               = Scene();
     std::get<CreateViewport>(packet->commands[1]).desc.extent = {24, 8};
     for (const auto &payload : first->payloads)
-        packet->commands.push_back(ResourceCpuReady{payload});
+        packet->commands.push_back(ResourceCpuReady{*payload});
     for (const auto &payload : second->payloads)
-        if (payload.material)
-            packet->commands.push_back(ResourceCpuReady{payload});
+        if (payload->material)
+            packet->commands.push_back(ResourceCpuReady{*payload});
     const auto            customKey = custom.resource;
     RenderResourcePayload texture;
     texture.resource       = Key(1261);
@@ -893,7 +893,7 @@ TEST_P(RendererRuntimeTest, RelocatedProductsRenderSceneWithoutSourcesOrCompiler
     entity.world.v[14] = .5f;
     packet->commands.push_back(CreateRenderEntity{{scene, {0, 1}}, entity});
     for (const auto &payload : resources->payloads)
-        packet->commands.push_back(ResourceCpuReady{payload});
+        packet->commands.push_back(ResourceCpuReady{*payload});
     packet->readbacks.push_back(viewport);
     Submit(std::move(packet));
     Complete(sequence);

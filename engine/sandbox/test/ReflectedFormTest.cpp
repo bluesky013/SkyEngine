@@ -15,6 +15,21 @@ using namespace sky::editor;
 
 namespace {
 
+    struct NonCopyableRoot {
+        NonCopyableRoot()
+        {
+            ++alive;
+        }
+        NonCopyableRoot(const NonCopyableRoot &)            = delete;
+        NonCopyableRoot &operator=(const NonCopyableRoot &) = delete;
+        virtual ~NonCopyableRoot()
+        {
+            --alive;
+        }
+        int32_t           value = 7;
+        inline static int alive = 0;
+    };
+
     struct InlineFieldLeaf {
         int32_t value   = 7;
         bool    enabled = true;
@@ -45,6 +60,7 @@ namespace {
     void RegisterMetadataOrderTypes()
     {
         auto *context = sky::SerializationContext::Get();
+        context->Register<NonCopyableRoot>("ReflectedNonCopyableRoot").Member<&NonCopyableRoot::value>("value");
         context->Register<MetadataOrderFields>("ReflectedMetadataOrderFields")
             .Member<&MetadataOrderFields::zeta>("zeta")
             .Property(sky::CommonPropertyKey::ORDER, sky::Any(int32_t{-5}))
@@ -576,4 +592,26 @@ TEST(ReflectedFormTest, StructSequenceMembersAndNestedListsCommitWholeRootWithou
     EXPECT_EQ(document.entries[0].label, "updated");
     EXPECT_EQ(document.entries[0].numbers[1], 8);
     EXPECT_EQ(document.locked[0].numbers[1], 4);
+}
+
+TEST(ReflectedFormTest, NonCopyablePolymorphicRootsCaptureDefaultsWithoutCopyingTheirLifetime)
+{
+    EXPECT_EQ(NonCopyableRoot::alive, 0);
+    {
+        NonCopyableRoot object;
+        object.value = 23;
+        PropertyEditorRegistry registry;
+        ReflectedForm          form;
+        form.Build(PropertyObject{&object, sky::GetTypeNode(sky::TypeInfo<NonCopyableRoot>::RegisteredId())}, registry);
+        EXPECT_EQ(NonCopyableRoot::alive, 1);
+        auto *field = FindField(form, "value");
+        ASSERT_NE(field, nullptr);
+        EXPECT_TRUE(form.IsModified(*field));
+        CommandService commands;
+        ASSERT_TRUE(form.ResetToDefault(*field, commands));
+        EXPECT_EQ(object.value, 7);
+        ASSERT_TRUE(commands.Undo());
+        EXPECT_EQ(object.value, 23);
+    }
+    EXPECT_EQ(NonCopyableRoot::alive, 0);
 }

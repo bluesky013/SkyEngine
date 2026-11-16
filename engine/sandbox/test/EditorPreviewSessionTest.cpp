@@ -58,8 +58,8 @@ namespace {
             const RenderResourceKey meshKey{id, 1, 0, info.deviceEpoch},
                 materialKey{material ? material : SceneLitMaterialId(), 1, 0, info.deviceEpoch};
             result->parts.push_back({.mesh = {.resource = meshKey}, .material = {.resource = materialKey}});
-            result->payloads.push_back({.resource = meshKey});
-            result->payloads.push_back({.resource = materialKey});
+            result->payloads.push_back(std::make_shared<const RenderResourcePayload>(RenderResourcePayload{.resource = meshKey}));
+            result->payloads.push_back(std::make_shared<const RenderResourcePayload>(RenderResourcePayload{.resource = materialKey}));
             return result;
         }
     };
@@ -305,4 +305,35 @@ TEST_F(PreviewSessions, GroundFitsFirstSubjectBoundsOnceAndKeepsAuthoredLighting
         EXPECT_NE(update.id, created.front().id);
     EXPECT_EQ(world->GetActors().size(), 2u);
     EXPECT_EQ(std::get<AssetPreviewStatus>(host.Status(handle)).bounds.size(), 1u);
+}
+
+TEST_F(PreviewSessions, GroundDefaultsCanArriveAfterSessionsExist)
+{
+    const auto first = Create();
+    EXPECT_TRUE(host.SetGroundAssets(Uuid::Create(), Uuid::Create()));
+    const auto second = Create();
+    EXPECT_NE(first.session, second.session);
+    EXPECT_TRUE(host.SetGroundAssets({}, {}));
+    EXPECT_EQ(host.Count(), 2u);
+}
+
+TEST(PreviewProviderRegistry, RetainsGroundDefaultsUntilProviderRegistration)
+{
+    class Provider final : public IAssetPreviewProvider {
+    public:
+        bool SetGroundAssets(const Uuid &mesh, const Uuid &material) override
+        {
+            receivedMesh     = mesh;
+            receivedMaterial = material;
+            return true;
+        }
+        Uuid receivedMesh, receivedMaterial;
+    } provider;
+    AssetPreviewProviderRegistry registry;
+    const auto                   mesh = Uuid::Create(), material = Uuid::Create();
+    ASSERT_TRUE(registry.SetGroundAssets(mesh, material));
+    registry.SetProvider(&provider);
+    EXPECT_EQ(provider.receivedMesh, mesh);
+    EXPECT_EQ(provider.receivedMaterial, material);
+    registry.SetProvider(nullptr);
 }

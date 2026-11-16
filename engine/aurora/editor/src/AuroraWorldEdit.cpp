@@ -22,7 +22,9 @@ namespace sky::aurora::editor {
                 : UndoCommand("Edit skeletal binding")
                 , world(actor.GetWorld())
                 , actor(actor.GetUuid())
-                , expected(&component)
+                , actorIncarnation(actor.GetIncarnation())
+                , expected(component.GetIncarnation())
+                , worldRuntime(actor.GetWorld() ? actor.GetWorld()->GetRuntimeId() : Uuid{})
                 , before(component.GetData())
                 , after(std::move(after))
                 , poseOnly(poseOnly)
@@ -48,9 +50,9 @@ namespace sky::aurora::editor {
         private:
             bool Apply(const SkeletalMeshComponentData &value)
             {
-                auto *owner     = world ? world->GetActorByUuid(actor) : nullptr;
+                auto *owner     = world && world->GetRuntimeId() == worldRuntime ? world->GetActorByUuid(actor) : nullptr;
                 auto *component = owner ? owner->GetComponent<SkeletalMeshComponent>() : nullptr;
-                if (!component || component != expected)
+                if (!component || owner->GetIncarnation() != actorIncarnation || component->GetIncarnation() != expected)
                     return false;
                 if (poseOnly)
                     component->SetPoseMode(value.pose);
@@ -59,8 +61,7 @@ namespace sky::aurora::editor {
                 return true;
             }
             WorldPtr                     world;
-            Uuid                         actor;
-            const SkeletalMeshComponent *expected;
+            Uuid                         actor, actorIncarnation, expected, worldRuntime;
             SkeletalMeshComponentData    before, after;
             bool                         poseOnly;
         };

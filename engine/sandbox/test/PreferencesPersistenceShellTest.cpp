@@ -371,3 +371,40 @@ namespace sky::editor::preferences_persistence_shell_test {
     }
 
 } // namespace sky::editor::preferences_persistence_shell_test
+
+namespace sky::editor::preferences_persistence_shell_test {
+    TEST_F(PreferencesPersistenceShellTest, ReentrantTargetRequestsKeepTheLastCompleteTargetAndCancelOldCallback)
+    {
+        Settings               first, second, third;
+        PreferencePageRegistry next, last;
+        pages->Add(Page(first));
+        next.Add(Page(second));
+        last.Add(Page(third));
+        auto              nextFile        = std::make_shared<MemoryStorage>();
+        auto              lastFile        = std::make_shared<MemoryStorage>();
+        auto              nextPersistence = std::make_shared<PreferencesPersistence>(nextFile);
+        auto              lastPersistence = std::make_shared<PreferencesPersistence>(lastFile);
+        PreferencesDialog dialog(nullptr);
+        int               oldApplied = 0, nextApplied = 0, lastApplied = 0;
+        dialog.RequestTarget({pages, persistence, "First", [&] { ++oldApplied; }});
+        dialog.Arrange({0, 0, 1000, 760});
+        Edit(dialog, "value", int32_t{7});
+        storage->onWrite = [&] {
+            dialog.RequestTarget({&next, nextPersistence, "Second", [&] { ++nextApplied; }});
+            dialog.RequestTarget({&last, lastPersistence, "Third", [&] { ++lastApplied; }});
+        };
+        dialog.Apply();
+        dialog.SynchronizeLayout();
+        EXPECT_EQ(oldApplied, 0);
+        Edit(dialog, "value", int32_t{9});
+        dialog.Apply();
+        EXPECT_EQ(second.value, 1);
+        EXPECT_EQ(third.value, 9);
+        EXPECT_EQ(nextFile->writes, 0);
+        EXPECT_EQ(lastFile->writes, 1);
+        EXPECT_EQ(nextApplied, 0);
+        EXPECT_EQ(lastApplied, 1);
+        dialog.RequestTarget({});
+        EXPECT_FALSE(dialog.IsOpen());
+    }
+} // namespace sky::editor::preferences_persistence_shell_test

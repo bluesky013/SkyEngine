@@ -34,6 +34,14 @@ namespace sky::editor {
             return world.Get();
         }
         const sky::WorldDesc *GetDesc() const;
+        std::weak_ptr<void>   GetEditLifetime() const
+        {
+            return editLifetime;
+        }
+        std::weak_ptr<void> GetLifetime() const
+        {
+            return lifetime;
+        }
 
         // Config surface: enable/disable a registered subsystem (adds an entry if absent).
         bool     SetSubSystemEnabled(const std::string &name, bool enabled);
@@ -64,6 +72,7 @@ namespace sky::editor {
         sky::WorldPtr         world;
         std::string           lastError;
         uint64_t              configRevision = 0;
+        std::shared_ptr<void> lifetime       = std::make_shared<int>(0);
         std::shared_ptr<void> editLifetime   = std::make_shared<int>(0);
     };
 

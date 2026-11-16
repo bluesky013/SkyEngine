@@ -54,6 +54,12 @@ namespace {
         bool             failFlush        = false;
         bool             failIndex        = false;
         bool             unsupportedWrite = false;
+        bool                failRemoval      = false;
+        FileOperationStatus RemoveFile(const FilePath &path) const override
+        {
+            return failRemoval && path.Extension() == ".bin" ? FileOperationStatus{FileOperationError::IOError, "injected product cleanup failure"}
+                                                             : NativeFileSystem::RemoveFile(path);
+        }
 
         FileOperationStatus WriteFileExclusive(const FilePath &path, std::span<const uint8_t> bytes) const override
         {
@@ -486,7 +492,10 @@ TEST_F(AssetProductTest, PartialBatchReplacementFailureMakesAllMembersUnavailabl
     manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
     ASSERT_TRUE(manager.SaveProducts(std::array<AssetPtr, 2>{Build(manager, mesh, 11), Build(manager, skin, 22)}, "test"));
     fs->failReplace = fs->replacements + 2;
-    EXPECT_FALSE(manager.SaveProducts(std::array<AssetPtr, 2>{Build(manager, mesh, 33), Build(manager, skin, 44)}, "test"));
+    const auto partial = manager.SaveProducts(std::array<AssetPtr, 2>{Build(manager, mesh, 33), Build(manager, skin, 44)}, "test");
+    EXPECT_FALSE(partial);
+    EXPECT_EQ(partial.state, AssetCommitState::CommittedNeedsRepair);
+    EXPECT_EQ(partial.stage, "replace-product");
     for (const auto &id : {mesh, skin}) {
         EXPECT_FALSE(fs->FileExist(ProductPath(id)));
         EXPECT_EQ(manager.LoadAsset(id, AssetLoadPolicy::ProductsOnly), nullptr);
@@ -540,7 +549,7 @@ TEST_F(AssetProductTest, GeneratedBatchKeepsSourcePathBoundToItsPrimaryProduct)
     EXPECT_EQ(std::static_pointer_cast<ProductTestAsset>(loaded)->value, 11u);
 }
 
-TEST_F(AssetProductTest, IndexFailureInvalidatesTheReplacedProduct)
+TEST_F(AssetProductTest, IndexFailureRetainsValidatedProductsAndRecookRepairsIndex)
 {
     DeferredProductCook catalog;
     catalog.id = mesh;
@@ -549,9 +558,21 @@ TEST_F(AssetProductTest, IndexFailureInvalidatesTheReplacedProduct)
     manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
     manager.SetSourceCatalog(&catalog);
     fs->failIndex = true;
-    EXPECT_FALSE(manager.SaveAsset(Build(manager, mesh, 12), "test"));
-    EXPECT_FALSE(fs->FileExist(ProductPath(mesh)));
-    EXPECT_EQ(manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly), nullptr);
+    const auto result = manager.SaveAsset(Build(manager, mesh, 12), "test");
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.state, AssetCommitState::CommittedNeedsRepair);
+    EXPECT_EQ(result.stage, "publish-product-index");
+    EXPECT_TRUE(fs->FileExist(ProductPath(mesh)));
+    const auto loaded = manager.LoadAsset(mesh, AssetLoadPolicy::ProductsOnly);
+    ASSERT_NE(loaded, nullptr);
+    loaded->BlockUntilLoaded();
+    ASSERT_TRUE(loaded->IsLoaded());
+    EXPECT_EQ(std::static_pointer_cast<ProductTestAsset>(loaded)->value, 12U);
+    fs->failIndex       = false;
+    const auto repaired = manager.SaveAsset(Build(manager, mesh, 12), "test");
+    EXPECT_TRUE(repaired);
+    EXPECT_EQ(repaired.state, AssetCommitState::Committed);
+    EXPECT_TRUE(fs->FileExist("product.index"));
 }
 
 TEST_F(AssetProductTest, UnsupportedAtomicStorageReturnsFailure)
@@ -881,4 +902,61 @@ TEST_F(AssetProductTest, AllowCookResolvesUncookedOverlayBeforeStalePublishedPat
     EXPECT_EQ(catalog.lookups, 0u);
     const auto index = AssetIndexFile::Load(fs, FilePath("product.index"), "path");
     EXPECT_EQ(index.Find("shapes/cube.glb"), nullptr);
+}
+
+TEST_F(AssetProductTest, PartialReplacementAndFailedCompensationReportResidualProducts)
+{
+    AssetManager manager;
+    manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    ASSERT_TRUE(manager.SaveProducts(std::array<AssetPtr, 2>{Build(manager, mesh, 11), Build(manager, skin, 22)}, "test"));
+    fs->failReplace   = fs->replacements + 2;
+    fs->failRemoval   = true;
+    const auto result = manager.SaveProducts(std::array<AssetPtr, 2>{Build(manager, mesh, 33), Build(manager, skin, 44)}, "test");
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.state, AssetCommitState::RollbackFailed);
+    ASSERT_EQ(result.recovery.size(), 2U);
+    for (const auto &issue : result.recovery) {
+        EXPECT_EQ(issue.stage, "remove-product-file");
+        EXPECT_TRUE(issue.path.Exist());
+    }
+    EXPECT_NE(result.Describe().find("rollback failed"), std::string::npos);
+}
+
+TEST_F(AssetProductTest, StalePublicationGuardDoesNotReplaceExistingProductBytes)
+{
+    class StaleGuard final : public AssetPublicationGuard {
+        ProductStatus Acquire(std::unique_ptr<AssetPublicationScope> &) const override
+        {
+            return {ProductError::Stale, "superseded cook input"};
+        }
+    };
+    AssetManager manager;
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, mesh, 1), "test"));
+    const auto before       = ReadProduct(mesh);
+    const auto replacements = fs->replacements;
+    EXPECT_EQ(manager.SaveAsset(Build(manager, mesh, 2), "test", std::make_shared<StaleGuard>()).error, ProductError::Stale);
+    EXPECT_EQ(fs->replacements, replacements);
+    EXPECT_EQ(ReadProduct(mesh), before);
+}
+
+TEST_F(AssetProductTest, OlderWorkerCatalogCannotStealANewerProjectProductMapping)
+{
+    OverlayProductCatalog catalog;
+    catalog.engine  = mesh;
+    catalog.project = owner;
+    catalog.id      = owner;
+    AssetManager manager;
+    manager.RegisterAssetHandler("ProductTest", new ProductTestHandler);
+    manager.AddAssetProductBundle(new HashedAssetBundle(fs, "test"));
+    manager.SetSourceCatalog(&catalog);
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, owner, 22), "test"));
+    catalog.project = {};
+    catalog.id      = mesh;
+    ASSERT_TRUE(manager.SaveAsset(Build(manager, mesh, 11), "test"));
+    EXPECT_EQ(manager.ResolveProductPath("shapes/cube.glb"), owner);
+    EXPECT_TRUE(manager.HasProduct(mesh, "test"));
+    EXPECT_TRUE(manager.HasProduct(owner, "test"));
 }

@@ -45,7 +45,7 @@ namespace {
         }
         payload.metadata.bounds = bounds;
         result->parts.push_back({.mesh = {payload.resource, 1}, .surface = SceneSurfaceFacts::StaticOpaque()});
-        result->payloads.push_back(std::move(payload));
+        result->payloads.push_back(std::make_shared<const RenderResourcePayload>(std::move(payload)));
         return result;
     }
     SceneGeometryInstance Instance(std::shared_ptr<const SceneMeshResources> mesh, float z = 0, uint32_t id = 100)
@@ -144,7 +144,9 @@ TEST_F(CpuViewportPickerTest, ParallelBoundaryRayHitsAndDegeneratesAreSkipped)
 TEST_F(CpuViewportPickerTest, InvalidRangesAndPositionsReturnExplicitErrors)
 {
     auto mesh                                 = PickMesh();
-    mesh->payloads[0].mesh->streams[0].stride = 4;
+    auto invalid                              = std::make_shared<RenderResourcePayload>(*mesh->payloads[0]);
+    invalid->mesh->streams[0].stride          = 4;
+    mesh->payloads[0]                         = invalid;
     scene->instances                          = {Instance(mesh)};
     EXPECT_EQ(Resolve().status, ViewportPickStatus::ERROR);
     scene->instances = {Instance(PickMesh({{NAN, 0, 0}, {1, 0, 0}, {0, 1, 0}}, 2))};
@@ -184,9 +186,9 @@ TEST_F(CpuViewportPickerTest, MaterialSupportAndU16SectionsAreExplicit)
     auto converted         = ConvertSceneMesh(asset, {API::VULKAN, 1});
     ASSERT_TRUE(std::holds_alternative<RenderResourcePayload>(converted));
     auto data = std::make_shared<SceneMeshResources>();
-    data->payloads.push_back(std::get<RenderResourcePayload>(converted));
-    data->parts.push_back({.mesh = {data->payloads[0].resource, 1}, .surface = SceneSurfaceFacts::StaticOpaque()});
-    data->parts.push_back({.part = 1, .mesh = {data->payloads[0].resource, 1}, .surface = SceneSurfaceFacts::StaticOpaque()});
+    data->payloads.push_back(std::make_shared<const RenderResourcePayload>(std::get<RenderResourcePayload>(converted)));
+    data->parts.push_back({.mesh = {data->payloads[0]->resource, 1}, .surface = SceneSurfaceFacts::StaticOpaque()});
+    data->parts.push_back({.part = 1, .mesh = {data->payloads[0]->resource, 1}, .surface = SceneSurfaceFacts::StaticOpaque()});
     scene->instances = {Instance(data)};
     EXPECT_NEAR(Resolve().distance, 4.5f, 1.e-5f);
     EXPECT_EQ(Resolve().part, 1u);

@@ -71,12 +71,11 @@ namespace sky::animation {
         for (const auto &dependency : asset->Data().graph.dependencies) {
             asset->AddDependencies(dependency);
         }
-        const auto saved = manager->SaveAsset(asset, bundle);
+        const auto saved = manager->SaveAsset(asset, bundle, request.publication);
         if (!saved) {
-            result.error = saved.message;
+            result.error = saved.Describe();
             return;
         }
-        catalog->SetBuildDependencies(request.assetInfo->uuid, asset->Data().graph.dependencies);
         request.assetInfo->dependencies = asset->Data().graph.dependencies;
         result.retCode                  = AssetBuildRetCode::SUCCESS;
         result.error.clear();

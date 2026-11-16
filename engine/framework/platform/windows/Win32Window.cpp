@@ -242,19 +242,7 @@ namespace sky {
                 break;
             }
             case WM_MOUSEMOVE: {
-                RECT client = {};
-                if (GetClientRect(hwnd, &client)) {
-                    // Re-arm on captured re-entry, but never on captured motion outside the client area.
-                    const POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
-                    if (PtInRect(&client, point)) {
-                        TRACKMOUSEEVENT tracking = {sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0};
-                        if (!TrackMouseEvent(&tracking)) {
-                            LOG_W(TAG, "TrackMouseEvent failed");
-                        }
-                    }
-                } else {
-                    LOG_W(TAG, "GetClientRect failed while tracking mouse leave");
-                }
+                window->TrackPointerEntry(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
                 MouseMotionEvent event = {};
                 event.winID            = winID;
                 event.x                = GET_X_LPARAM(lparam);
@@ -262,7 +250,10 @@ namespace sky {
                 Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseMotion, event);
                 break;
             }
-            case WM_MOUSELEAVE: Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseLeave, winID); break;
+            case WM_MOUSELEAVE:
+                window->NotifyPointerLeave();
+                Event<IMouseEvent>::BroadCast(&IMouseEvent::OnMouseLeave, winID);
+                break;
             case WM_LBUTTONDOWN:
             case WM_RBUTTONDOWN:
             case WM_MBUTTONDOWN:
@@ -331,6 +322,23 @@ namespace sky {
         }
 
     } // namespace
+
+    void Win32Window::TrackPointerEntry(int32_t x, int32_t y)
+    {
+        if (mouseLeaveArmed)
+            return;
+        RECT client{};
+        if (!GetClientRect(static_cast<HWND>(hwnd), &client)) {
+            LOG_W(TAG, "GetClientRect failed while tracking mouse leave");
+            return;
+        }
+        if (!PtInRect(&client, POINT{x, y}))
+            return;
+        TRACKMOUSEEVENT tracking{sizeof(TRACKMOUSEEVENT), TME_LEAVE, static_cast<HWND>(hwnd), 0};
+        mouseLeaveArmed = TrackMouseEvent(&tracking) != FALSE;
+        if (!mouseLeaveArmed)
+            LOG_W(TAG, "TrackMouseEvent failed");
+    }
 
     bool Win32Window::EnsureWindowClass()
     {

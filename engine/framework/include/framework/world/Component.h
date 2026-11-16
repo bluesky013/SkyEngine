@@ -24,6 +24,12 @@ namespace sky {
     class ComponentBase {
     public:
         ComponentBase()          = default;
+        ComponentBase(const ComponentBase &)            = delete;
+        ComponentBase &operator=(const ComponentBase &) = delete;
+        const Uuid    &GetIncarnation() const
+        {
+            return incarnation;
+        }
         virtual ~ComponentBase() = default;
 
         virtual void Tick(float time)
@@ -106,6 +112,9 @@ namespace sky {
     protected:
         friend class Actor;
         Actor *actor = nullptr;
+
+    private:
+        const Uuid incarnation = Uuid::Create();
     };
 
     template <typename Data>

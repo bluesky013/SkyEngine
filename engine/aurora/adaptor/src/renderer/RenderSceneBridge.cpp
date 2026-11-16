@@ -424,7 +424,7 @@ namespace sky::aurora {
                             const auto validBinding = [&](const auto &binding) {
                                 return binding.resource.product && binding.resource.revision && binding.resource.deviceEpoch == info.deviceEpoch &&
                                        std::any_of((*ready)->payloads.begin(), (*ready)->payloads.end(),
-                                                   [&](const auto &payload) { return payload.resource == binding.resource; });
+                                                   [&](const auto &payload) { return payload && payload->resource == binding.resource; });
                             };
                             if (std::any_of((*ready)->parts.begin(), (*ready)->parts.end(),
                                             [&](const auto &part) { return !validBinding(part.mesh) || !validBinding(part.material); })) {
@@ -442,9 +442,11 @@ namespace sky::aurora {
                                 }
                             }
                             for (const auto &payload : (*ready)->payloads) {
-                                used.emplace(ResourceKey(payload.resource), payload.resource);
-                                if (published.emplace(ResourceKey(payload.resource), payload.resource).second) {
-                                    packet.commands.emplace_back(ResourceCpuReady{payload});
+                                if (!payload)
+                                    continue;
+                                used.emplace(ResourceKey(payload->resource), payload->resource);
+                                if (published.emplace(ResourceKey(payload->resource), payload->resource).second) {
+                                    packet.commands.emplace_back(ResourceCpuReady{*payload});
                                 }
                             }
                             for (const auto &part : (*ready)->parts) {

@@ -16,6 +16,8 @@ namespace sky {
         std::string target;
         std::string path;      // logical source path; used by the out-of-process runner
         Uuid        requestId; // echoed by completion; distinguishes retries for the same owner
+        std::string                                   inputFingerprint;
+        std::function<void(const AssetBuildResult &)> completion;
     };
 
     // Cook dispatch seam. The loading layer depends only on this and IAssetEvent, so an

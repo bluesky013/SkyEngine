@@ -96,7 +96,7 @@ TEST_F(SkeletalSceneAssets, ProductionMaterialAndReferenceBindingNeedNoAnimation
     EXPECT_EQ(ready->binding->slotToBone[0], 0u);
     EXPECT_EQ(ready->referenceModels.size(), 1u);
     ASSERT_EQ(ready->geometry->payloads.size(), 2u);
-    const auto &techniques = ready->geometry->payloads[1].material->techniques;
+    const auto &techniques = ready->geometry->payloads[1]->material->techniques;
     ASSERT_EQ(techniques.size(), 2u);
     for (const auto &technique : techniques) {
         const auto found = std::ranges::find(technique.program.reflection.resources, std::string("gSkinningPalette"), &ShaderResource::name);
@@ -123,7 +123,7 @@ TEST_F(SkeletalSceneAssets, OddTriangleIndexCountPadsUploadWithoutChangingDrawRa
     data.subMeshes    = {{0, 3, 0}};
     const auto result = Resolve();
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(result));
-    const auto &payload = std::get<std::shared_ptr<const SceneSkeletalResources>>(result)->geometry->payloads.front();
+    const auto &payload = *std::get<std::shared_ptr<const SceneSkeletalResources>>(result)->geometry->payloads.front();
     ASSERT_TRUE(payload.mesh);
     const auto &lod = payload.mesh->lods.front();
     EXPECT_EQ(payload.bytes.size() % 4, 0u);
@@ -165,11 +165,11 @@ TEST_F(SkeletalSceneAssets, ProductsOnlySelectionRetainsPipelineAndCompleteVerte
         ADD_FAILURE() << failure->message;
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneSkeletalResources>>(restored));
     const auto &geometry = *std::get<std::shared_ptr<const SceneSkeletalResources>>(restored)->geometry;
-    const auto &meshData = *geometry.payloads.front().mesh;
+    const auto &meshData = *geometry.payloads.front()->mesh;
     const auto  mask     = RenderVertexMask(meshData.streams, meshData.attributes);
     EXPECT_TRUE(mask.Test(VertexSemantic::POSITION));
     EXPECT_TRUE(mask.Test(VertexSemantic::JOINTS));
-    for (const auto &technique : geometry.payloads.back().material->techniques) {
+    for (const auto &technique : geometry.payloads.back()->material->techniques) {
         ASSERT_EQ(technique.variants.size(), 4u);
         EXPECT_TRUE(std::ranges::any_of(technique.variants, [](const auto &variant) {
             return std::ranges::any_of(variant.pipeline.entries, [](const auto &value) { return value.key == Name("SHADOWS") && value.value == 1; });

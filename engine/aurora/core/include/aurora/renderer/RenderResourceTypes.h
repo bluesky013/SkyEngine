@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 #include <vector>
 
 namespace sky::aurora {
@@ -104,8 +105,11 @@ namespace sky::aurora {
         std::optional<RenderMaterialData> material;
     };
 
-    inline uint64_t RenderResourceCpuBytes(const RenderResourcePayload &payload)
+    inline uint64_t RenderResourceCpuBytes(const RenderResourcePayload                     &payload,
+                                           std::unordered_set<const ShaderStageArtifact *> *sharedArtifacts = nullptr)
     {
+        std::unordered_set<const ShaderStageArtifact *> localArtifacts;
+        auto                                           &artifacts = sharedArtifacts ? *sharedArtifacts : localArtifacts;
         uint64_t   size = payload.bytes.size();
         const auto add  = [&](uint64_t count) { size = count > UINT64_MAX - size ? UINT64_MAX : size + count; };
         add(payload.metadata.lodDistances.size() * sizeof(float));
@@ -158,9 +162,8 @@ namespace sky::aurora {
             for (const auto &value : program.selection)
                 add(value.name.size());
             reflectionBytes(program.reflection);
-            // Conservatively charge shared artifacts for every program that retains them.
             for (const auto &artifact : {program.vertex, program.fragment, program.compute}) {
-                if (!artifact)
+                if (!artifact || !artifacts.insert(artifact.get()).second)
                     continue;
                 add(sizeof(ShaderStageArtifact));
                 add(artifact->data.size());

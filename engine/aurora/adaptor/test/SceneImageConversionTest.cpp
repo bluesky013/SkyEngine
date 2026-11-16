@@ -254,8 +254,9 @@ TEST(SceneMaterialSource, IndependentMaterialOwnsTextureVersionsWithoutLoadingAn
     ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMaterialResources>>(first));
     const auto original  = std::get<std::shared_ptr<const SceneMaterialResources>>(first);
     const auto findImage = [](const SceneMaterialResources &resources) -> const RenderResourcePayload * {
-        const auto found = std::ranges::find_if(resources.dependencies, [](const auto &payload) { return payload.metadata.image.has_value(); });
-        return found == resources.dependencies.end() ? nullptr : &*found;
+        const auto found =
+            std::ranges::find_if(resources.dependencies, [](const auto &payload) { return payload && payload->metadata.image.has_value(); });
+        return found == resources.dependencies.end() ? nullptr : found->get();
     };
     const auto *oldImage = findImage(*original);
     ASSERT_TRUE(oldImage);
@@ -624,4 +625,38 @@ TEST(SceneMaterialSource, IndependentMaterialReportsPendingMissingAndMismatchedI
     const auto result = source->ResolveMaterial(requested, {API::VULKAN, 9}, mask);
     ASSERT_TRUE(std::holds_alternative<RendererError>(result));
     EXPECT_NE(std::get<RendererError>(result).message.find("identity"), std::string::npos);
+}
+
+TEST_F(AsyncSceneMaterialSource, MeshesShareMaterialPayloadAndCacheChargesOnlyNewGeometry)
+{
+    compiler->Release();
+    const auto firstResult = Await(0);
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(firstResult));
+    const auto first        = std::get<std::shared_ptr<const SceneMeshResources>>(firstResult);
+    const auto initialBytes = source->CachedCpuPayloadBytes();
+    auto       secondResult = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::PLANE), materials[0]->GetUuid(), {API::VULKAN, 9});
+    const auto deadline     = std::chrono::steady_clock::now() + 5s;
+    while (std::holds_alternative<std::monostate>(secondResult) && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(1ms);
+        secondResult = source->ResolveMesh(ScenePrimitiveId(ScenePrimitive::PLANE), materials[0]->GetUuid(), {API::VULKAN, 9});
+    }
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(secondResult));
+    const auto second = std::get<std::shared_ptr<const SceneMeshResources>>(secondResult);
+    ASSERT_EQ(first->payloads.size(), 2u);
+    ASSERT_EQ(second->payloads.size(), 2u);
+    EXPECT_EQ(first->payloads.back(), second->payloads.back());
+    EXPECT_EQ(source->CachedCpuPayloadBytes(), initialBytes + RenderResourceCpuBytes(*second->payloads.front()));
+    const auto beforeVariant = source->CachedCpuPayloadBytes();
+    const auto variant       = Await(1);
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(variant));
+    EXPECT_EQ(first->payloads.front(), std::get<std::shared_ptr<const SceneMeshResources>>(variant)->payloads.front());
+    EXPECT_GT(source->CachedCpuPayloadBytes(), beforeVariant);
+    ASSERT_TRUE(source->Invalidate(materials[0]->GetUuid()));
+    const auto refreshedResult = Await(0);
+    ASSERT_TRUE(std::holds_alternative<std::shared_ptr<const SceneMeshResources>>(refreshedResult));
+    const auto refreshed = std::get<std::shared_ptr<const SceneMeshResources>>(refreshedResult);
+    EXPECT_NE(refreshed->payloads.front(), first->payloads.front());
+    EXPECT_NE(refreshed->payloads.back(), first->payloads.back());
+    EXPECT_EQ(source->CachedCpuPayloadBytes(), initialBytes);
+    EXPECT_FALSE(first->payloads.front()->bytes.empty());
 }

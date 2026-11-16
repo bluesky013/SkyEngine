@@ -43,13 +43,34 @@ namespace sky::editor {
             return true;
         }
 
+        struct EditContext {
+            WorldDocument      *document = nullptr;
+            std::weak_ptr<void> documentLifetime, bindingLifetime;
+            WorldPtr            world;
+            Uuid                runtime, persistent;
+            EditContext(WorldDocument &document, std::weak_ptr<void> binding)
+                : document(&document)
+                , documentLifetime(document.GetEditLifetime())
+                , bindingLifetime(std::move(binding))
+                , world(document.GetWorld())
+                , runtime(world->GetRuntimeId())
+                , persistent(world->GetPersistID())
+            {
+            }
+            bool Valid() const
+            {
+                return !documentLifetime.expired() && !bindingLifetime.expired() && document->GetWorld() == world.Get() &&
+                       world->GetRuntimeId() == runtime && world->GetPersistID() == persistent;
+            }
+        };
+
         class CreationCommand final : public UndoCommand {
         public:
-            CreationCommand(WorldDocument                       &document,
+            CreationCommand(EditContext                          context,
                             UndoCommandPtr                       edit,
                             std::vector<UndoCommandPtr>          dependencies,
                             std::shared_ptr<const ActorCreation> creator = {})
-                : UndoCommand(edit->GetName()), document(document), creator(std::move(creator)), steps(std::move(dependencies))
+                : UndoCommand(edit->GetName()), context(std::move(context)), creator(std::move(creator)), steps(std::move(dependencies))
             {
                 steps.push_back(std::move(edit));
             }
@@ -63,8 +84,12 @@ namespace sky::editor {
             }
             bool TryDo() override
             {
-                const bool dirty = document.IsDirty();
+                if (!context.Valid())
+                    return false;
+                const bool dirty = context.document->IsDirty();
                 for (size_t applied = 0; applied < steps.size(); ++applied) {
+                    if (!context.Valid())
+                        return false;
                     if (steps[applied]->TryDo())
                         continue;
                     bool restored = true;
@@ -72,16 +97,20 @@ namespace sky::editor {
                         restored = steps[--applied]->TryUndo() && restored;
                     if (!restored)
                         LOG_E("WorldEditor", "Creation rollback failed");
-                    else if (!dirty)
-                        document.ClearDirty();
+                    else if (!dirty && context.Valid())
+                        context.document->ClearDirty();
                     return false;
                 }
                 return true;
             }
             bool TryUndo() override
             {
-                const bool dirty = document.IsDirty();
+                if (!context.Valid())
+                    return false;
+                const bool dirty = context.document->IsDirty();
                 for (size_t remaining = steps.size(); remaining > 0; --remaining) {
+                    if (!context.Valid())
+                        return false;
                     if (steps[remaining - 1]->TryUndo())
                         continue;
                     bool restored = true;
@@ -89,15 +118,15 @@ namespace sky::editor {
                         restored = steps[redo]->TryDo() && restored;
                     if (!restored)
                         LOG_E("WorldEditor", "Creation undo compensation failed");
-                    else if (!dirty)
-                        document.ClearDirty();
+                    else if (!dirty && context.Valid())
+                        context.document->ClearDirty();
                     return false;
                 }
                 return true;
             }
 
         private:
-            WorldDocument                       &document;
+            EditContext                          context;
             std::shared_ptr<const ActorCreation> creator;
             std::vector<UndoCommandPtr>          steps;
         };
@@ -105,12 +134,13 @@ namespace sky::editor {
         class AddComponentCommand final : public UndoCommand {
         public:
             AddComponentCommand(
-                WorldPtr world, const Uuid &actor, Actor::ComponentPtr component, UndoCommandPtr related, std::function<void()> changed)
+                EditContext context, const Actor &owner, Actor::ComponentPtr component, UndoCommandPtr related, std::function<void()> changed)
                 : UndoCommand("Add component")
-                , world(std::move(world))
-                , actor(actor)
+                , context(std::move(context))
+                , actor(owner.GetUuid())
+                , actorIncarnation(owner.GetIncarnation())
                 , type(component->GetTypeId())
-                , expected(component.get())
+                , expected(component->GetIncarnation())
                 , detached(std::move(component))
                 , related(std::move(related))
                 , changed(std::move(changed))
@@ -126,8 +156,12 @@ namespace sky::editor {
             }
             bool TryDo() override
             {
-                auto *target = world->GetActorByUuid(actor);
-                if (!target || !detached || !target->AttachComponent(detached))
+                if (!context.Valid())
+                    return false;
+                auto *target = context.world->GetActorByUuid(actor);
+                if (!target || target->GetIncarnation() != actorIncarnation)
+                    return false;
+                if (!detached || detached->GetIncarnation() != expected || !target->AttachComponent(detached))
                     return false;
                 if (related && !related->TryDo()) {
                     detached = target->DetachComponent(type);
@@ -135,13 +169,19 @@ namespace sky::editor {
                         LOG_E("WorldEditor", "Component edit rollback could not detach its component");
                     return false;
                 }
+                if (!context.Valid())
+                    return false;
                 changed();
                 return true;
             }
             bool TryUndo() override
             {
-                auto *target = world->GetActorByUuid(actor);
-                if (!target || target->GetComponent(type) != expected || (related && !related->TryUndo()))
+                if (!context.Valid())
+                    return false;
+                auto *target = context.world->GetActorByUuid(actor);
+                if (!target || target->GetIncarnation() != actorIncarnation)
+                    return false;
+                if (!target->GetComponent(type) || target->GetComponent(type)->GetIncarnation() != expected || (related && !related->TryUndo()))
                     return false;
                 detached = target->DetachComponent(type);
                 if (!detached) {
@@ -149,14 +189,15 @@ namespace sky::editor {
                         LOG_E("WorldEditor", "Component undo compensation failed");
                     return false;
                 }
+                if (!context.Valid())
+                    return false;
                 changed();
                 return true;
             }
 
         private:
-            WorldPtr              world;
-            Uuid                  actor, type;
-            ComponentBase        *expected;
+            EditContext           context;
+            Uuid                  actor, actorIncarnation, type, expected;
             Actor::ComponentPtr   detached;
             UndoCommandPtr        related;
             std::function<void()> changed;
@@ -164,8 +205,14 @@ namespace sky::editor {
 
         class WorldPropertyCommand final : public UndoCommand {
         public:
-            WorldPropertyCommand(UndoCommandPtr edit, WorldDocument &document)
-                : UndoCommand(edit->GetName()), edit(std::move(edit)), document(document)
+            WorldPropertyCommand(UndoCommandPtr edit, EditContext context, const Actor &actor, const ComponentBase &component)
+                : UndoCommand(edit->GetName())
+                , edit(std::move(edit))
+                , context(std::move(context))
+                , actor(actor.GetUuid())
+                , actorIncarnation(actor.GetIncarnation())
+                , componentType(component.GetTypeId())
+                , componentIncarnation(component.GetIncarnation())
             {
             }
             void Do() override
@@ -178,31 +225,41 @@ namespace sky::editor {
             }
             bool TryDo() override
             {
-                if (!edit->TryDo())
+                if (!Valid() || !edit->TryDo() || !Valid())
                     return false;
-                document.MarkDirty();
+                context.document->MarkDirty();
                 return true;
             }
             bool TryUndo() override
             {
-                if (!edit->TryUndo())
+                if (!Valid() || !edit->TryUndo() || !Valid())
                     return false;
-                document.MarkDirty();
+                context.document->MarkDirty();
                 return true;
             }
 
         private:
+            bool Valid() const
+            {
+                if (!context.Valid())
+                    return false;
+                auto *owner     = context.world->GetActorByUuid(actor);
+                auto *component = owner && owner->GetIncarnation() == actorIncarnation ? owner->GetComponent(componentType) : nullptr;
+                return component && component->GetIncarnation() == componentIncarnation;
+            }
             UndoCommandPtr edit;
-            WorldDocument &document;
+            EditContext    context;
+            Uuid           actor, actorIncarnation, componentType, componentIncarnation;
         };
 
         class ActorCommand final : public UndoCommand {
         public:
-            ActorCommand(WorldPtr world, std::unique_ptr<Actor> actor, bool create, std::function<void()> changed)
+            ActorCommand(EditContext context, std::unique_ptr<Actor> actor, bool create, std::function<void()> changed)
                 : UndoCommand(create ? "Create scene object" : "Delete scene object")
-                , world(std::move(world))
+                , context(std::move(context))
                 , detached(std::move(actor))
                 , id(detached->GetUuid())
+                , incarnation(detached->GetIncarnation())
                 , create(create)
                 , changed(std::move(changed))
             {
@@ -227,20 +284,29 @@ namespace sky::editor {
         private:
             bool Apply(bool attach)
             {
+                if (!context.Valid())
+                    return false;
+                auto *world = context.world.Get();
                 if (attach) {
-                    if (!world->TryAttachToWorld(detached))
+                    if (!detached || detached->GetIncarnation() != incarnation || !world->TryAttachToWorld(detached))
                         return false;
                 } else if (auto *actor = world->GetActorByUuid(id)) {
+                    if (actor->GetIncarnation() != incarnation)
+                        return false;
                     detached = world->DetachFromWorld(actor);
-                } else if (!detached) {
+                    if (!detached)
+                        return false;
+                } else if (!detached || detached->GetIncarnation() != incarnation) {
                     return false;
                 }
+                if (!context.Valid())
+                    return false;
                 changed();
                 return true;
             }
-            WorldPtr               world;
+            EditContext            context;
             std::unique_ptr<Actor> detached;
-            Uuid                   id;
+            Uuid                   id, incarnation;
             bool                   create;
             std::function<void()>  changed;
         };
@@ -251,8 +317,10 @@ namespace sky::editor {
     }
     void WorldEditorState::Bind(WorldDocument *next)
     {
-        if (next == document && (!next || next->GetWorld() == world.Get()))
+        if (next == document && (!next || (!documentLifetime.expired() && next->GetWorld() == world.Get())))
             return;
+        bindingLifetime  = std::make_shared<char>();
+        documentLifetime = next ? next->GetLifetime() : std::weak_ptr<void>{};
         selection.Clear();
         pendingComponents.clear();
         refreshSelection = false;
@@ -328,15 +396,26 @@ namespace sky::editor {
     }
     void WorldEditorState::OnEdited(const Uuid &)
     {
-        if (document)
+        if (document && !documentLifetime.expired())
             document->MarkDirty();
     }
     UndoCommandPtr WorldEditorState::MakeEditCommand(const Uuid &owner, const PropertyDescriptor &property, Any value)
     {
-        if (!document || !world)
+        if (!document || documentLifetime.expired() || !world)
             return {};
         auto *actor = world->GetActorByUuid(owner);
         if (!actor)
+            return {};
+        ComponentBase *bound = nullptr;
+        for (const auto &[type, component] : actor->GetComponents()) {
+            const auto *node = GetTypeNode(type);
+            if (node && property.IsBoundTo(component->GetReflectedObject()) &&
+                std::ranges::any_of(node->members, [&](const auto &entry) { return &entry.second == property.GetMember(); })) {
+                bound = component.get();
+                break;
+            }
+        }
+        if (!bound)
             return {};
         auto prepared = extensions ? extensions->MakePropertyEdit(*actor, property, value) : EditorEditResult{};
         if (prepared.state == EditorEditState::Error) {
@@ -346,8 +425,7 @@ namespace sky::editor {
         auto edit = prepared.state == EditorEditState::Ready ? std::move(prepared.command) : property.MakeEditCommand(std::move(value));
         if (!edit)
             return {};
-        // Bind clears history before releasing its document and reflected storage.
-        return std::make_unique<WorldPropertyCommand>(std::move(edit), *document);
+        return std::make_unique<WorldPropertyCommand>(std::move(edit), EditContext(*document, bindingLifetime), *actor, *bound);
     }
     std::vector<std::string> RegisterBuiltinActorCreators()
     {
@@ -366,7 +444,7 @@ namespace sky::editor {
     bool WorldEditorState::Create(const std::string &creatorId)
     {
         const auto creator = EditorActorCreation::Get()->Find(creatorId);
-        if (!world || !document || !creator)
+        if (!world || !document || documentLifetime.expired() || !creator)
             return false;
         auto actor = std::make_unique<Actor>(Uuid::Create());
         actor->AddComponent<TransformComponent>();
@@ -379,28 +457,34 @@ namespace sky::editor {
         if (!CollectDependencies(*document, types, dependencies))
             return false;
         const auto id   = actor->GetUuid();
-        auto       edit = std::make_unique<ActorCommand>(world, std::move(actor), true, [this]() { OnEdited({}); });
-        if (!EditorCore::GetCommandService().Execute(std::make_unique<CreationCommand>(*document, std::move(edit), std::move(dependencies), creator)))
+        auto       edit = std::make_unique<ActorCommand>(EditContext(*document, bindingLifetime), std::move(actor), true, [this]() { OnEdited({}); });
+        if (!EditorCore::GetCommandService().Execute(
+                std::make_unique<CreationCommand>(EditContext(*document, bindingLifetime), std::move(edit), std::move(dependencies), creator)))
             return false;
         selection.SetSelection({{SelectionType::ENTITY, id}});
         return true;
     }
     void WorldEditorState::DeleteSelection()
     {
-        if (!world || selection.IsEmpty() || selection.GetSelection().front().type != SelectionType::ENTITY)
+        if (!document || documentLifetime.expired() || !world || selection.IsEmpty() ||
+            selection.GetSelection().front().type != SelectionType::ENTITY)
             return;
         const auto id    = selection.GetSelection().front().id;
         auto      *actor = world->GetActorByUuid(id);
         if (!actor)
             return;
+        EditContext context(*document, bindingLifetime);
         auto detached = world->DetachFromWorld(actor);
-        EditorCore::GetCommandService().Execute(std::make_unique<ActorCommand>(world, std::move(detached), false, [this]() { OnEdited({}); }));
+        if (!detached || !context.Valid())
+            return;
+        EditorCore::GetCommandService().Execute(
+            std::make_unique<ActorCommand>(std::move(context), std::move(detached), false, [this]() { OnEdited({}); }));
     }
 
     bool WorldEditorState::CanAddComponent(const Uuid &type) const
     {
-        if (!world || !document || selection.GetSelection().size() != 1 || selection.GetSelection().front().type != SelectionType::ENTITY ||
-            !RegisteredComponent(type))
+        if (!world || !document || documentLifetime.expired() || selection.GetSelection().size() != 1 ||
+            selection.GetSelection().front().type != SelectionType::ENTITY || !RegisteredComponent(type))
             return false;
         const auto *info = ComponentFactory::Get()->Find(type);
         for (const auto &required : info->requiredSubSystems)
@@ -421,7 +505,9 @@ namespace sky::editor {
 
     void WorldEditorState::Tick()
     {
-        if (document && document->GetWorld() != world.Get())
+        if (document && documentLifetime.expired())
+            Bind(nullptr);
+        else if (document && document->GetWorld() != world.Get())
             Bind(document);
         const auto requests = std::move(pendingComponents);
         pendingComponents.clear();
@@ -442,11 +528,13 @@ namespace sky::editor {
                 LOG_E("WorldEditor", "%s", prepared.error.c_str());
                 continue;
             }
-            auto edit = std::make_unique<AddComponentCommand>(world, id, std::move(component), std::move(prepared.command), [this]() {
-                OnEdited({});
-                refreshSelection = true;
-            });
-            if (!EditorCore::GetCommandService().Execute(std::make_unique<CreationCommand>(*document, std::move(edit), std::move(dependencies))))
+            auto edit = std::make_unique<AddComponentCommand>(EditContext(*document, bindingLifetime), *actor, std::move(component),
+                                                              std::move(prepared.command), [this]() {
+                                                                  OnEdited({});
+                                                                  refreshSelection = true;
+                                                              });
+            if (!EditorCore::GetCommandService().Execute(
+                    std::make_unique<CreationCommand>(EditContext(*document, bindingLifetime), std::move(edit), std::move(dependencies))))
                 LOG_E("WorldEditor", "Component addition failed for actor %s, type %s", id.ToString().c_str(), type.ToString().c_str());
         }
         if (refreshSelection) {

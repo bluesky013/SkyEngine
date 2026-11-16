@@ -57,9 +57,9 @@ namespace sky {
 
     void AssetBuilder::FinishProduct(const std::shared_ptr<AssetBase> &asset, const AssetBuildRequest &request, AssetBuildResult &result)
     {
-        const auto status = AssetManager::Get()->SaveAsset(asset, request.bundle);
+        const auto status = AssetManager::Get()->SaveAsset(asset, request.bundle, request.publication);
         result.retCode    = status ? AssetBuildRetCode::SUCCESS : AssetBuildRetCode::FAILED;
-        result.error      = status.message;
+        result.error      = status.Describe();
     }
 
 } // namespace sky

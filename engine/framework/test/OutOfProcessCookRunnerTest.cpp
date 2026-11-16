@@ -96,7 +96,7 @@ TEST_F(OutOfProcessCookRunnerTest, HandshakeAndCook)
 
     const Uuid id      = Uuid::Create();
     const Uuid request = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1", request}));
+    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1", request, "test-input"}));
 
     ASSERT_TRUE(collector.WaitCount(1, 6000));
     EXPECT_EQ(collector.results[0].uuid, id);
@@ -115,8 +115,8 @@ TEST_F(OutOfProcessCookRunnerTest, CorrelatesMultipleRequests)
 
     const Uuid first  = Uuid::Create();
     const Uuid second = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{first, "common", "a.t1"}));
-    ASSERT_TRUE(runner.Request(CookJob{second, "common", "b.t1"}));
+    ASSERT_TRUE(runner.Request(CookJob{first, "common", "a.t1", {}, "test-input"}));
+    ASSERT_TRUE(runner.Request(CookJob{second, "common", "b.t1", {}, "test-input"}));
 
     ASSERT_TRUE(collector.WaitCount(2, 6000));
     bool sawFirst  = false;
@@ -142,7 +142,7 @@ TEST_F(OutOfProcessCookRunnerTest, UnknownResultIdIsDropped)
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     const Uuid id = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1"}));
+    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1", {}, "test-input"}));
 
     ASSERT_TRUE(collector.WaitCount(1, 6000));
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -159,7 +159,7 @@ TEST_F(OutOfProcessCookRunnerTest, TimeoutFailsRequest)
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     const Uuid id = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1"}));
+    ASSERT_TRUE(runner.Request(CookJob{id, "common", "a.t1", {}, "test-input"}));
 
     ASSERT_TRUE(collector.WaitCount(1, 4000));
     EXPECT_EQ(collector.results[0].retCode, AssetBuildRetCode::FAILED);
@@ -180,13 +180,13 @@ TEST_F(OutOfProcessCookRunnerTest, CrashFailsInFlightThenRestarts)
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     const Uuid first = Uuid::Create();
-    ASSERT_TRUE(runner.Request(CookJob{first, "common", "a.t1"}));
+    ASSERT_TRUE(runner.Request(CookJob{first, "common", "a.t1", {}, "test-input"}));
     ASSERT_TRUE(collector.WaitCount(1, 5000));
     EXPECT_EQ(collector.results[0].retCode, AssetBuildRetCode::FAILED);
 
     // The next request starts a fresh worker which succeeds.
     const Uuid second = Uuid::Create();
-    runner.Request(CookJob{second, "common", "b.t1"});
+    runner.Request(CookJob{second, "common", "b.t1", {}, "test-input"});
     ASSERT_TRUE(collector.WaitCount(2, 6000));
     EXPECT_EQ(collector.results[1].retCode, AssetBuildRetCode::SUCCESS);
 
@@ -200,7 +200,7 @@ TEST_F(OutOfProcessCookRunnerTest, HealthyWorkerAfterLogsStillCompletes)
     runner.SetCompletion([&](const AssetBuildResult &result) { collector.Add(result); });
 
     for (int i = 0; i < 3; ++i) {
-        runner.Request(CookJob{Uuid::Create(), "common", "a.t1"});
+        runner.Request(CookJob{Uuid::Create(), "common", "a.t1", {}, "test-input"});
     }
     ASSERT_TRUE(collector.WaitCount(3, 6000));
     EXPECT_EQ(collector.Count(), 3u);

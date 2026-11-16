@@ -1,7 +1,7 @@
 //
 // PreferencePageRegistry: process-wide (cross-DLL) list of Preferences pages. Each page owns a
 // reflected settings object + its TypeNode; the Preferences dialog renders it with ReflectedFormView.
-// Modules contribute pages (dynamic list); the fields within a page are a fixed reflected type —
+// Modules contribute pages (dynamic list); the fields within a page are a fixed reflected type --
 // see docs/editor/preferences-and-settings.md.
 //
 
@@ -41,10 +41,12 @@ namespace sky::editor {
         friend class sky::Singleton<PreferencePageRegistry>;
 
     public:
-        void Add(PreferencePage page)
+        uint64_t Add(PreferencePage page)
         {
             page.registration = nextRegistration++;
+            const auto registration = page.registration;
             pages.push_back(std::move(page));
+            return registration;
         }
         bool Remove(const std::string &id)
         {

@@ -149,6 +149,14 @@ namespace sky::ui {
         // Allocation-only changes (e.g. scrolling) preserve desired-size caches.
         void MarkArrangeDirty();
         void MarkPaintDirty();
+        uint64_t GetLayoutRevision() const
+        {
+            return layoutGeneration;
+        }
+        uint64_t GetPaintRevision() const
+        {
+            return paintGeneration;
+        }
 
         // Legacy/custom elements may poll external state in layout callbacks.
         // They remain volatile by default; controlled widgets opt into retention.

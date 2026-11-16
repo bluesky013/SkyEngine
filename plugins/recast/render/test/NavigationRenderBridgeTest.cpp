@@ -50,7 +50,7 @@ namespace {
                 RenderResourcePayload image;
                 image.resource = {textureId, revision, 3, info.deviceEpoch};
                 image.bytes    = {128, 64, 32, 255};
-                resources->dependencies.push_back(std::move(image));
+                resources->dependencies.push_back(std::make_shared<const RenderResourcePayload>(std::move(image)));
             }
             return resources;
         }

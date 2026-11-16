@@ -67,6 +67,8 @@ namespace sky {
                 writer.String(message.target.c_str());
                 writer.Key("path");
                 writer.String(message.path.c_str());
+                writer.Key("inputFingerprint");
+                writer.String(message.inputFingerprint.c_str());
                 break;
             case CookMessageType::Result: {
                 const std::string uuid = message.uuid.ToString();
@@ -139,6 +141,7 @@ namespace sky {
         getInt("retCode", out.retCode);
         getString("target", out.target);
         getString("path", out.path);
+        getString("inputFingerprint", out.inputFingerprint);
         getString("error", out.error);
         getString("platform", out.platform);
 

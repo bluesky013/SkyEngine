@@ -65,7 +65,7 @@ TEST(AssetCookOverrideTest, BuildRequestCarriesManifestOverride)
     auto         *db        = AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto src = db->FindAsset(FilePath("a.txt"));
     ASSERT_TRUE(src != nullptr);
@@ -144,4 +144,31 @@ TEST(AssetCookOverrideTest, EnginePresetsFillMissingProjectConfigsAndProjectFile
     EXPECT_FALSE(manager.SetWorkSpaceFs(new NativeFileSystem(FilePath(project))));
     EXPECT_EQ(manager.GetCookConfig().GetBundles(), std::vector<std::string>{"project-common"});
     manager.UnRegisterBuilder(probe);
+}
+
+TEST(AssetCookOverrideTest, WorkerFingerprintUsesResolvedTargetWhileLocalConfigChangesInvalidateRequests)
+{
+    const auto root = std::filesystem::temp_directory_path() / ("sky-cook-platform-" + Uuid::Create().ToString());
+    std::filesystem::create_directories(root);
+    std::ofstream(root / "a.txt") << "source";
+    AssetDataBase database;
+    database.SetWorkSpaceFs(new NativeFileSystem(FilePath(root)));
+    const auto source = database.RegisterAsset("a.txt", false);
+    ASSERT_TRUE(source);
+    AssetBuilderManager manager;
+    manager.RegisterBuilder(new CapturingBuilder);
+    AssetBuildRequest worker, editor;
+    ASSERT_TRUE(manager.PrepareRequest(source->uuid, "common", worker, &database));
+    auto config = manager.GetCookConfig();
+    config.SetActivePlatform("macos");
+    manager.SetCookConfig(config);
+    ASSERT_TRUE(manager.PrepareRequest(source->uuid, "common", editor, &database));
+    EXPECT_EQ(worker.inputFingerprint, editor.inputFingerprint);
+    EXPECT_NE(worker.localRevision, editor.localRevision);
+    std::unique_ptr<AssetPublicationScope> scope;
+    EXPECT_EQ(worker.publication->Acquire(scope).error, ProductError::Stale);
+    EXPECT_TRUE(editor.publication->Acquire(scope));
+    scope.reset();
+    database.Reset();
+    std::filesystem::remove_all(root);
 }

@@ -69,10 +69,12 @@ namespace sky::ai {
                 if (value.name == Name("gMaterial.tint") || value.name == Name("tint"))
                     value.value = MakeShaderData(Vector4{.1f, .85f, .25f, .6f});
         }
+        if (std::ranges::any_of((*ready)->dependencies, [](const auto &dependency) { return !dependency; }))
+            return false;
         ReleaseMaterial(packet);
         for (const auto &dependency : (*ready)->dependencies) {
-            materialDependencies.push_back(dependency.resource);
-            packet.commands.emplace_back(ResourceCpuReady{dependency});
+            materialDependencies.push_back(dependency->resource);
+            packet.commands.emplace_back(ResourceCpuReady{*dependency});
         }
         material         = copy.resource;
         materialAsset    = asset;

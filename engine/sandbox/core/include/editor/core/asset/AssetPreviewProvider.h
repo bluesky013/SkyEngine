@@ -87,9 +87,18 @@ namespace sky::editor {
         friend class sky::Singleton<AssetPreviewProviderRegistry>;
 
     public:
-        void SetProvider(IAssetPreviewProvider *value)
+        bool SetProvider(IAssetPreviewProvider *value)
         {
             provider = value;
+            return !provider || (!groundMesh && !groundMaterial) || provider->SetGroundAssets(groundMesh, groundMaterial);
+        }
+        bool SetGroundAssets(const Uuid &mesh, const Uuid &material)
+        {
+            if (bool(mesh) != bool(material))
+                return false;
+            groundMesh     = mesh;
+            groundMaterial = material;
+            return !provider || provider->SetGroundAssets(mesh, material);
         }
         IAssetPreviewProvider *GetProvider() const
         {
@@ -98,6 +107,7 @@ namespace sky::editor {
 
     private:
         IAssetPreviewProvider *provider = nullptr;
+        Uuid                   groundMesh, groundMaterial;
     };
 
 } // namespace sky::editor

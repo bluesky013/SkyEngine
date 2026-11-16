@@ -13,6 +13,10 @@
 #include <string>
 #include <string_view>
 
+namespace sky {
+    struct AssetMutationResult;
+}
+
 namespace sky::editor {
 
     class AssetMutationService : public sky::Singleton<AssetMutationService> {
@@ -22,7 +26,7 @@ namespace sky::editor {
         Uuid                Import(const std::string &sourceFile, const std::string &destPath, bool cook);
         bool                Move(const std::string &from, const std::string &to);
         Uuid                Duplicate(const std::string &from, const std::string &to);
-        FileOperationStatus Delete(const Uuid &uuid);
+        AssetMutationResult Delete(const Uuid &uuid);
         FileOperationStatus SaveGeneratedSource(const std::string &displayPath, const Uuid &expectedOwner, std::string_view contents, Uuid &out);
 
     private:

@@ -83,6 +83,10 @@ namespace sky {
             return DescribeSettings(bundle);
         }
 
+        virtual std::vector<FilePath> ConfigurationFiles() const
+        {
+            return {};
+        }
         virtual void LoadConfig(const FileSystemPtr &cfg)
         {
         }

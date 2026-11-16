@@ -110,8 +110,9 @@ namespace sky::softbody {
         const std::vector<GeneratedAssetDescriptor> descriptors{{"mesh", "AuroraMesh"}, {"skin", "AuroraSkin"}, {"skeleton", "AuroraSkeleton"}};
         const std::map<std::string, std::string>    defaults{{"mesh", "mesh"}, {"skin", "skin"}, {"skeleton", "skeleton"}, {"softbody", "$source"}};
         GeneratedAssetManifest                      manifest;
-        if (const auto status = database->UpdateGeneratedProducts(request.assetInfo->uuid, descriptors, defaults, manifest); !status) {
-            result.error = status.message;
+        if (const auto status = database->UpdateGeneratedProducts(request.assetInfo->uuid, descriptors, defaults, manifest, request.publication);
+            !status) {
+            result.error = status.Describe();
             return;
         }
         phy::AuthoringProductIds ids;
@@ -155,15 +156,14 @@ namespace sky::softbody {
         asset->AddDependencies(ids.skeleton);
         compiled.products.push_back(product);
         const auto &bundle = request.bundle.empty() ? request.target : request.bundle;
-        if (const auto status = manager->SaveProducts(compiled.products, bundle); !status) {
-            result.error = status.message + "; complete recipe recook required";
+        if (const auto status = manager->SaveProducts(compiled.products, bundle, request.publication); !status) {
+            result.error = status.Describe() + "; complete recipe recook required";
             return;
         }
         std::vector<Uuid> dependencies{recipe.source};
         for (const auto &material : compiled.effectiveDependencies)
             if (std::find(dependencies.begin(), dependencies.end(), material) == dependencies.end())
                 dependencies.push_back(material);
-        database->SetBuildDependencies(request.assetInfo->uuid, dependencies);
         request.assetInfo->dependencies = std::move(dependencies);
         result.retCode                  = AssetBuildRetCode::SUCCESS;
     }

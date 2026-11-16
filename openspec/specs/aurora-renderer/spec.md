@@ -9,9 +9,7 @@ Define renderer lifecycle, scene adaptation, launcher integration, built-in geom
 ### aurora-renderer
 
 Specify the Aurora renderer interface, owned scene and viewport commands, parallel CPU preparation, exact resource versions, bounded GPU scheduling, frame composition and safe lifecycle behavior of supported hosts.
-
 ## Requirements
-
 ### Requirement: adaptor 静态库 + runtime/editor 动态模块
 
 Aurora Framework 适配 SHALL 位于 engine/aurora/adaptor，目标为 Aurora.Adaptor.Static；Renderer foundation 实现 SHALL 位于 Aurora.Core.Static，核心不得依赖 Framework 或业务 plugin。运行时入口 SHALL 位于 engine/aurora/runtime 的 Aurora.Render；编辑扩展 SHALL 位于 engine/aurora/editor 的 Aurora.Render.Editor，注册编辑器功能而不建立第二个 Renderer。模块 SHALL 复用既有静态实现，支持配置指定的动态或 tagged static 入口。
@@ -1328,7 +1326,6 @@ The project SHALL provide player-pair, wall/slide and landing demonstrations thr
 - **WHEN** the active directional light casts shadows
 - **THEN** the existing shadow pass SHALL allocate and rasterize a 2048x2048 D32 map with its current PCF/depth comparison behavior.
 
-
 #### Scenario: Bounded wall compression
 - **WHEN** the extra probe reaches a static vertical showcase wall
 - **THEN** its project support constraint SHALL limit inward planar displacement at the configured compression distance
@@ -1434,3 +1431,17 @@ The runtime SHALL expose explicit graph and progress stages while preserving upl
 - **WHEN** a prepared frame is queued for GPU processing
 - **THEN** the GPU path owns its final completion notification
 - **AND** CPU acknowledgement does not emit a duplicate frame completion
+
+### Requirement: Immutable shared CPU payload ownership
+Scene resource caches SHALL share immutable payloads rather than copying material/image bytes into each mesh entry. Budget accounting SHALL measure unique cache-owned CPU payload identities including backend, device epoch, variant and content revision; it is not process RSS. Refresh clears the full cache and resets its accounting. External snapshots surviving refresh are outside the cache-owned budget and SHALL be documented as such.
+
+#### Scenario: Multiple meshes share one material
+- **WHEN** meshes resolve the same material variant in one device epoch
+- **THEN** they share its payload storage and do not consume the material byte budget repeatedly
+
+### Requirement: Late preview defaults
+Preview providers and ground defaults SHALL permit late registration. Updating defaults affects future sessions and SHALL NOT fail merely because another session already exists.
+
+#### Scenario: Provider appears after a preview opens
+- **WHEN** ground assets are registered while an existing session is open
+- **THEN** newly created sessions use the new defaults

@@ -33,6 +33,9 @@ namespace sky::aurora {
             return {.code = RendererErrorCode::INVALID_ARGUMENT, .message = std::move(message)};
         }
         constexpr size_t   MAX_SCENE_ASSETS = 1024;
+        constexpr size_t   MAX_RESOURCE_ENTRIES     = 128;
+        constexpr size_t   MAX_PROGRAM_ENTRIES      = 4096;
+        constexpr uint64_t MAX_CACHED_PAYLOAD_BYTES = 256ull * 1024 * 1024;
         constexpr uint64_t MAX_MESH_BYTES   = 64ull * 1024 * 1024;
     } // namespace
     std::variant<RendererError, RenderResourcePayload> ConvertSceneMesh(const Asset<Mesh> &asset, RendererInfo info)
@@ -214,6 +217,10 @@ namespace sky::aurora {
             };
 
         public:
+            uint64_t CachedCpuPayloadBytes() const override
+            {
+                return cachedBytes;
+            }
             uint64_t Revision() const override
             {
                 return revision.load() + AssetManager::Get()->GetProductChangeSerial();
@@ -234,6 +241,8 @@ namespace sky::aurora {
                 if (current == loadedRevision)
                     return;
                 cache.clear();
+                meshPayloads.clear();
+                chargedArtifacts.clear();
                 materialCache.clear();
                 programs.clear();
                 skeletalCache.clear();
@@ -277,7 +286,7 @@ namespace sky::aurora {
                 const auto key = std::tuple{id, info.backend, info.deviceEpoch, vertexMask.mask, skeletal};
                 if (const auto found = materialCache.find(key); found != materialCache.end())
                     return found->second;
-                if (materialCache.size() >= 128)
+                if (materialCache.size() >= MAX_RESOURCE_ENTRIES)
                     return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene material cache budget exceeded"};
                 const MaterialAssetData *material = nullptr;
                 AssetPtr                 loaded;
@@ -348,14 +357,14 @@ namespace sky::aurora {
                                 [](const auto &blend) { return bool(blend.blendEn); }) ||
                     result->surface.cull != SceneSurfaceCull::NONE)
                     result->surface = {};
-                uint64_t bytes = RenderResourceCpuBytes(result->material);
-                for (const auto &dependency : result->dependencies)
-                    bytes += RenderResourceCpuBytes(dependency);
-                if (bytes > 256ull * 1024 * 1024 - cachedBytes)
+                auto           artifacts = chargedArtifacts;
+                const uint64_t bytes     = RenderResourceCpuBytes(result->material, &artifacts);
+                if (bytes > MAX_CACHED_PAYLOAD_BYTES - cachedBytes)
                     return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene asset CPU byte budget exceeded"};
                 if (Revision() != loadedRevision)
                     return {};
                 cachedBytes += bytes;
+                chargedArtifacts = std::move(artifacts);
                 materialCache.emplace(key, result);
                 return std::shared_ptr<const SceneMaterialResources>(std::move(result));
             }
@@ -367,7 +376,7 @@ namespace sky::aurora {
                 if (const auto found = skeletalCache.find(key); found != skeletalCache.end()) {
                     return found->second;
                 }
-                if (skeletalCache.size() >= 128) {
+                if (skeletalCache.size() >= MAX_RESOURCE_ENTRIES) {
                     return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene skeletal binding budget exceeded"};
                 }
                 const auto geometry = ResolveGeometry(id, material, info, true);
@@ -437,7 +446,7 @@ namespace sky::aurora {
                 if (const auto found = cache.find(key); found != cache.end()) {
                     return found->second;
                 }
-                if (cache.size() >= 128) {
+                if (cache.size() >= MAX_RESOURCE_ENTRIES) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset cache budget exceeded"};
                 }
                 auto asset = Load(id);
@@ -458,14 +467,30 @@ namespace sky::aurora {
                     return RendererError{RendererErrorCode::UNSUPPORTED, "Mesh influence layout does not match the component pose mode"};
                 }
                 bounds[id]     = meshAsset->Data().bounds.ToAABB();
-                auto converted = ConvertSceneMesh(*meshAsset, info);
-                if (const auto *error = std::get_if<RendererError>(&converted)) {
-                    return *error;
+                const auto                                   payloadKey = std::tuple{id, info.backend, info.deviceEpoch, skeletal};
+                std::shared_ptr<const RenderResourcePayload> meshPayload;
+                if (const auto found = meshPayloads.find(payloadKey); found != meshPayloads.end()) {
+                    meshPayload = found->second;
+                } else {
+                    if (meshPayloads.size() >= MAX_RESOURCE_ENTRIES)
+                        return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene geometry cache capacity exceeded"};
+                    auto converted = ConvertSceneMesh(*meshAsset, info);
+                    if (const auto *error = std::get_if<RendererError>(&converted))
+                        return *error;
+                    auto payload              = std::move(std::get<RenderResourcePayload>(converted));
+                    payload.resource.revision = meshAsset->GetRevision();
+                    const auto bytes          = RenderResourceCpuBytes(payload);
+                    if (bytes > MAX_CACHED_PAYLOAD_BYTES - cachedBytes)
+                        return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene asset CPU payload byte budget exceeded"};
+                    if (Revision() != loadedRevision)
+                        return {};
+                    meshPayload = std::make_shared<const RenderResourcePayload>(std::move(payload));
+                    cachedBytes += bytes;
+                    meshPayloads.emplace(payloadKey, meshPayload);
                 }
-                auto result                                                  = std::make_shared<SceneMeshResources>();
-                std::get<RenderResourcePayload>(converted).resource.revision = meshAsset->GetRevision();
-                result->payloads.push_back(std::move(std::get<RenderResourcePayload>(converted)));
-                const auto                        meshKey = result->payloads.front().resource;
+                auto result = std::make_shared<SceneMeshResources>();
+                result->payloads.push_back(meshPayload);
+                const auto                        meshKey = meshPayload->resource;
                 const auto                       &data    = meshAsset->Data();
                 const size_t                      count   = std::max(size_t{1}, data.subMeshes.size());
                 std::map<Uuid, RenderResourceKey> materials;
@@ -485,7 +510,7 @@ namespace sky::aurora {
                         return Invalid("Scene mesh requires cooked material slots or an explicit override; recook this asset");
                     if (!materials.contains(materialId)) {
                         const auto resolved = ResolveMaterialData(
-                            materialId, info, RenderVertexMask(result->payloads.front().mesh->streams, result->payloads.front().mesh->attributes),
+                            materialId, info, RenderVertexMask(result->payloads.front()->mesh->streams, result->payloads.front()->mesh->attributes),
                             skeletal);
                         if (const auto *error = std::get_if<RendererError>(&resolved))
                             return *error;
@@ -496,36 +521,28 @@ namespace sky::aurora {
                         surfaces[materialId] = (*ready)->surface;
                         for (const auto &dependency : (*ready)->dependencies)
                             if (std::none_of(result->payloads.begin(), result->payloads.end(),
-                                             [&](const auto &existing) { return existing.resource == dependency.resource; }))
+                                             [&](const auto &existing) { return existing->resource == dependency->resource; }))
                                 result->payloads.push_back(dependency);
-                        result->payloads.push_back((*ready)->material);
+                        result->payloads.emplace_back(*ready, &(*ready)->material);
                     }
                     result->parts.push_back({.part     = part,
                                              .mesh     = {.resource = meshKey, .bindingRevision = 1},
                                              .material = {.resource = materials.at(materialId), .bindingRevision = 1},
                                              .surface  = surfaces.at(materialId)});
                 }
-                uint64_t bytes = 0;
-                for (const auto &payload : result->payloads) {
-                    bytes += RenderResourceCpuBytes(payload);
-                }
-                if (bytes > 256ull * 1024 * 1024 - cachedBytes) {
-                    return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset CPU byte budget exceeded"};
-                }
                 if (Revision() != loadedRevision)
                     return {};
-                cachedBytes += bytes;
                 cache.emplace(key, result);
                 return std::shared_ptr<const SceneMeshResources>(std::move(result));
             }
             SceneImageResult ResolveImage(const Uuid &id, RendererInfo info, SceneImageUsage usage) override
             {
                 Refresh();
-                const auto key = std::tuple{id, info.deviceEpoch, usage};
+                const auto key = std::tuple{id, info.backend, info.deviceEpoch, usage};
                 if (const auto found = imageCache.find(key); found != imageCache.end()) {
                     return found->second;
                 }
-                if (imageCache.size() >= 128) {
+                if (imageCache.size() >= MAX_RESOURCE_ENTRIES) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Environment asset cache budget exceeded"};
                 }
                 const auto asset = Load(id);
@@ -545,7 +562,7 @@ namespace sky::aurora {
                 std::get<RenderResourcePayload>(converted).resource.revision = loadedRevision;
                 auto       result = std::make_shared<const RenderResourcePayload>(std::move(std::get<RenderResourcePayload>(converted)));
                 const auto bytes  = RenderResourceCpuBytes(*result);
-                if (bytes > 256ull * 1024 * 1024 - cachedBytes) {
+                if (bytes > MAX_CACHED_PAYLOAD_BYTES - cachedBytes) {
                     return RendererError{.code = RendererErrorCode::OUT_OF_MEMORY, .message = "Scene asset CPU byte budget exceeded"};
                 }
                 if (Revision() != loadedRevision)
@@ -686,11 +703,11 @@ namespace sky::aurora {
                 }
                 return seed;
             }
-            std::optional<RendererError> BindMaterialParameters(std::span<const MaterialPropertyData> properties,
-                                                                RenderMaterialTechnique              &technique,
-                                                                RendererInfo                          info,
-                                                                std::vector<RenderResourcePayload>   &images,
-                                                                bool                                 &pending)
+            std::optional<RendererError> BindMaterialParameters(std::span<const MaterialPropertyData>                      properties,
+                                                                RenderMaterialTechnique                                   &technique,
+                                                                RendererInfo                                               info,
+                                                                std::vector<std::shared_ptr<const RenderResourcePayload>> &images,
+                                                                bool                                                      &pending)
             {
                 auto &program = technique.program;
                 program.parameterAliases.clear();
@@ -743,23 +760,17 @@ namespace sky::aurora {
                             continue;
                         if (!*id)
                             return Invalid("Active material texture asset is missing");
-                        const auto image = Load(*id);
-                        if (!image || !(image->GetType() == AssetTraits<Texture>::ASSET_TYPE) || image->GetStatus() == AssetBase::Status::FAILED)
-                            return LoadFailure(*id, "Material texture asset is missing, failed, or has the wrong type");
-                        if (!image->IsLoaded()) {
+                        const auto resolved = ResolveImage(*id, info, SceneImageUsage::MATERIAL);
+                        if (const auto *error = std::get_if<RendererError>(&resolved))
+                            return *error;
+                        const auto *ready = std::get_if<std::shared_ptr<const RenderResourcePayload>>(&resolved);
+                        if (!ready || !*ready) {
                             pending = true;
                             return {};
                         }
-                        if (image->GetUuid() != *id)
-                            return Invalid("Material image loader returned a different asset identity");
-                        auto converted = ConvertSceneImage(*std::static_pointer_cast<Asset<Texture>>(image), info, SceneImageUsage::MATERIAL);
-                        if (const auto *failure = std::get_if<RendererError>(&converted))
-                            return *failure;
-                        auto payload              = std::move(std::get<RenderResourcePayload>(converted));
-                        payload.resource.revision = loadedRevision;
-                        technique.parameters.images.push_back({name, payload.resource});
-                        if (std::none_of(images.begin(), images.end(), [&](const auto &existing) { return existing.resource == payload.resource; }))
-                            images.push_back(std::move(payload));
+                        technique.parameters.images.push_back({name, (*ready)->resource});
+                        if (std::none_of(images.begin(), images.end(), [&](const auto &existing) { return existing == *ready; }))
+                            images.push_back(*ready);
                     } else {
                         auto value = TypedProperty(*property);
                         if (const auto *failure = std::get_if<RendererError>(&value))
@@ -806,7 +817,7 @@ namespace sky::aurora {
                         return it->second->result;
                     return {};
                 }
-                if (programs.size() >= 4096)
+                if (programs.size() >= MAX_PROGRAM_ENTRIES)
                     return RendererError{RendererErrorCode::OUT_OF_MEMORY, "Scene material program cache capacity exceeded"};
                 const auto compiler = products ? nullptr : ShaderCompilerFactory::Get().Acquire();
                 if (!products && !compiler)
@@ -826,13 +837,13 @@ namespace sky::aurora {
                 });
                 return {};
             }
-            std::variant<RendererError, RenderResourcePayload> MaterialPayload(const Uuid                         &id,
-                                                                               const MaterialAssetData            *data,
-                                                                               RendererInfo                        info,
-                                                                               bool                                skeletal,
-                                                                               VertexSemanticMask                  vertexMask,
-                                                                               std::vector<RenderResourcePayload> &images,
-                                                                               bool                               &pending)
+            std::variant<RendererError, RenderResourcePayload> MaterialPayload(const Uuid                                                &id,
+                                                                               const MaterialAssetData                                   *data,
+                                                                               RendererInfo                                               info,
+                                                                               bool                                                       skeletal,
+                                                                               VertexSemanticMask                                         vertexMask,
+                                                                               std::vector<std::shared_ptr<const RenderResourcePayload>> &images,
+                                                                               bool                                                      &pending)
             {
                 if (!data)
                     return Invalid("Material asset data is unavailable");
@@ -978,8 +989,10 @@ namespace sky::aurora {
             std::map<std::tuple<Uuid, Uuid, API, uint64_t, bool>, std::shared_ptr<const SceneMeshResources>>           cache;
             std::map<std::tuple<Uuid, Uuid, Uuid, Uuid, API, uint64_t>, std::shared_ptr<const SceneSkeletalResources>> skeletalCache;
             std::map<std::tuple<Uuid, API, uint64_t, uint16_t, bool>, std::shared_ptr<const SceneMaterialResources>>   materialCache;
+            std::map<std::tuple<Uuid, API, uint64_t, bool>, std::shared_ptr<const RenderResourcePayload>>              meshPayloads;
+            std::unordered_set<const ShaderStageArtifact *>                                                            chargedArtifacts;
             SkinBindingCache                                                                                           skinBindings;
-            std::map<std::tuple<Uuid, uint64_t, SceneImageUsage>, std::shared_ptr<const RenderResourcePayload>>        imageCache;
+            std::map<std::tuple<Uuid, API, uint64_t, SceneImageUsage>, std::shared_ptr<const RenderResourcePayload>>   imageCache;
             std::atomic<uint64_t>                                                                                      revision{1};
             uint64_t                                                                                                   loadedRevision = 1;
             std::map<Uuid, std::optional<AABB>>                                                                        bounds;

@@ -151,7 +151,7 @@ namespace sky::editor {
         ASSERT_TRUE(bar->WantsPointerCapture());
         TooltipHost host;
         host.Pointer({.action = ui::UIPointerAction::MOVE, .x = 50.0f, .y = 50.0f});
-        host.Tick(&root, 1.0f);
+        host.Tick({&root, bar, root.GetLayoutRevision(), root.GetPaintRevision(), 0}, 1.0f);
         EXPECT_FALSE(host.IsVisible());
         EXPECT_EQ(probe->builds, 0);
     }

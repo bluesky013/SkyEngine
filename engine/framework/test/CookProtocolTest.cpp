@@ -18,6 +18,7 @@ TEST(CookProtocolTest, CookRoundTrip)
     message.uuid = Uuid::Create();
     message.target = "Win32";
     message.path = "assets/mesh/a.t1";
+    message.inputFingerprint = "source-and-settings-version";
 
     CookMessage decoded;
     ASSERT_TRUE(DecodeCookMessage(EncodeCookMessage(message), decoded));
@@ -27,6 +28,7 @@ TEST(CookProtocolTest, CookRoundTrip)
     EXPECT_EQ(decoded.uuid, message.uuid);
     EXPECT_EQ(decoded.target, "Win32");
     EXPECT_EQ(decoded.path, "assets/mesh/a.t1");
+    EXPECT_EQ(decoded.inputFingerprint, message.inputFingerprint);
 }
 
 TEST(CookProtocolTest, ResultRoundTrip)

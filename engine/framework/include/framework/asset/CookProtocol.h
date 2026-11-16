@@ -10,7 +10,7 @@
 
 namespace sky {
 
-    inline constexpr uint32_t COOK_PROTOCOL_VERSION = 1;
+    inline constexpr uint32_t COOK_PROTOCOL_VERSION = 2;
 
     enum class CookMessageType : uint32_t {
         Unknown = 0,
@@ -30,6 +30,7 @@ namespace sky {
         Uuid            uuid;
         std::string     target;
         std::string     path;
+        std::string     inputFingerprint;
         int32_t         retCode = 0;
         std::string     error;
         std::string     platform;

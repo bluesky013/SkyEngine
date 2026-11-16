@@ -41,6 +41,11 @@ namespace sky {
 
         // Applies the requested cursor to the OS (used by WM_SETCURSOR too).
         void ApplyCursor() const;
+        void TrackPointerEntry(int32_t x, int32_t y);
+        void NotifyPointerLeave()
+        {
+            mouseLeaveArmed = false;
+        }
 
         // True when this is the process main window (the first created); closing
         // it requests application exit. Secondary windows (e.g. a preview) close
@@ -50,6 +55,7 @@ namespace sky {
         static bool EnsureWindowClass();
 
     private:
+        bool           mouseLeaveArmed = false;
         void          *hwnd          = nullptr;
         StandardCursor desiredCursor = StandardCursor::Arrow;
     };

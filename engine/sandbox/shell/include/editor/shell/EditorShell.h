@@ -15,6 +15,7 @@
 #include <editor/core/property/EditorPropertySource.h>
 #include <editor/core/property/PropertyModel.h>
 #include <editor/core/selection/SelectionService.h>
+#include <editor/shell/PreferencesDialog.h>
 #include <editor/widgets/TooltipHost.h>
 #include <framework/window/Cursor.h>
 #include <ui/UIDrawData.h>
@@ -272,6 +273,7 @@ namespace sky::editor {
         // none. Used to route input while a modal is open.
         sky::ui::UIElement *ActiveModal() const;
         sky::ui::UIElement *TooltipRoot(uint32_t surfaceId) const;
+        TooltipInteractionScope TooltipScope(uint32_t surfaceId) const;
 
         // Texture for a registered icon name (UI_INVALID_TEXTURE if unknown).
         sky::ui::UITextureId ResolveIcon(const std::string &name) const;
@@ -407,11 +409,8 @@ namespace sky::editor {
         PreferencePageRegistry                 *preferenceRegistry = nullptr;
         std::function<void()>                   preferencesApplied;
         std::shared_ptr<PreferencesPersistence> preferencesPersistence;
-        PreferencePageRegistry                 *openedSettingsRegistry = nullptr;
-        std::shared_ptr<PreferencesPersistence> openedSettingsPersistence;
-        std::function<void()>                   openedSettingsApplied;
-        std::string                             openedSettingsTitle = "Preferences";
-        bool                                    preferencesOpen     = false;
+        SettingsTarget                          openedSettings;
+        bool                                    preferencesOpen = false;
 
         WorldDocument                           *worldDocument   = nullptr;
         PlayState                                playState       = PlayState::Editing;

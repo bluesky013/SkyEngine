@@ -756,3 +756,112 @@ TEST_F(WorldSkinDefaultsTest, AnimationSkeletonFieldMustHaveUuidTypeBeforePrepar
     EXPECT_FALSE(document.IsSubSystemEnabled("TestAnimation", enabled));
     editor.Bind(nullptr);
 }
+
+TEST_F(WorldSkinDefaultsTest, HeldPropertyCommandsRejectReboundDocumentsAndReplacementComponents)
+{
+    WorldDocument    first((root / "first.world").string()), second((root / "second.world").string());
+    SelectionService selection;
+    WorldEditorState editor(selection);
+    editor.Bind(&first);
+    auto         *actor     = first.GetWorld()->CreateActor(Uuid::Create());
+    auto         *transform = actor->GetComponent<TransformComponent>();
+    PropertyModel model(transform->GetReflectedObject(), GetTypeNode(transform->GetTypeId()));
+    const auto    field = std::ranges::find_if(model.GetDescriptors(), [](const auto &value) { return value.GetName() == "translation"; });
+    ASSERT_NE(field, model.GetDescriptors().end());
+    auto edit = editor.MakeEditCommand(actor->GetUuid(), *field, Any(Vector3{4, 5, 6}));
+    ASSERT_TRUE(edit);
+    editor.Bind(&second);
+    first.ClearDirty();
+    second.ClearDirty();
+    EXPECT_FALSE(edit->TryDo());
+    EXPECT_FALSE(edit->TryUndo());
+    EXPECT_FALSE(first.IsDirty());
+    EXPECT_FALSE(second.IsDirty());
+    EXPECT_FLOAT_EQ(transform->GetWorldMatrix().v[12], 0.f);
+    editor.Bind(&first);
+    edit = editor.MakeEditCommand(actor->GetUuid(), *field, Any(Vector3{4, 5, 6}));
+    ASSERT_TRUE(edit);
+    const auto incarnation = transform->GetIncarnation();
+    actor->RemoveComponent<TransformComponent>();
+    auto *replacement = actor->AddComponent<TransformComponent>();
+    ASSERT_NE(replacement->GetIncarnation(), incarnation);
+    EXPECT_FALSE(edit->TryDo());
+    EXPECT_FLOAT_EQ(replacement->GetWorldMatrix().v[12], 0.f);
+    EXPECT_FALSE(first.IsDirty());
+}
+
+TEST_F(WorldSkinDefaultsTest, HeldCommandsRejectDestroyedDocumentsAndActorsWithReusedUuid)
+{
+    auto             document = std::make_unique<WorldDocument>((root / "document.world").string());
+    SelectionService selection;
+    WorldEditorState editor(selection);
+    editor.Bind(document.get());
+    auto         *actor     = document->GetWorld()->CreateActor(Uuid::Create());
+    const auto    id        = actor->GetUuid();
+    auto         *transform = actor->GetComponent<TransformComponent>();
+    PropertyModel model(transform->GetReflectedObject(), GetTypeNode(transform->GetTypeId()));
+    const auto    field = std::ranges::find_if(model.GetDescriptors(), [](const auto &value) { return value.GetName() == "translation"; });
+    ASSERT_NE(field, model.GetDescriptors().end());
+    auto edit = editor.MakeEditCommand(id, *field, Any(Vector3{4, 5, 6}));
+    ASSERT_TRUE(edit);
+    auto detached = document->GetWorld()->DetachFromWorld(actor);
+    ASSERT_TRUE(document->GetWorld()->CreateActor(id));
+    EXPECT_FALSE(edit->TryDo());
+    EXPECT_FALSE(document->IsDirty());
+    document.reset();
+    EXPECT_FALSE(edit->TryUndo());
+    editor.Tick();
+    EXPECT_TRUE(editor.Outline().empty());
+}
+
+TEST_F(RepositoryCreationTest, CreationUndoCannotDetachAnActorWithReusedUuid)
+{
+    WorldDocument    document((root / "scene.world").string());
+    SelectionService selection;
+    WorldEditorState editor(selection, &extensions);
+    editor.Bind(&document);
+    ASSERT_TRUE(editor.Create("cube"));
+    auto      *original    = document.GetWorld()->GetActors().front().get();
+    const auto id          = original->GetUuid();
+    auto       detached    = document.GetWorld()->DetachFromWorld(original);
+    auto      *replacement = document.GetWorld()->CreateActor(id);
+    ASSERT_TRUE(replacement);
+    document.ClearDirty();
+    EXPECT_FALSE(EditorCore::GetCommandService().Undo());
+    EXPECT_EQ(document.GetWorld()->GetActorByUuid(id), replacement);
+    EXPECT_FALSE(document.IsDirty());
+}
+
+TEST_F(WorldSkinDefaultsTest, ComponentUndoRejectsReplacementComponentAndRelatedSkeletalTarget)
+{
+    AuthoringAnimationControl control;
+    WorldDocument document((root / "replacement-component.world").string());
+    SelectionService selection;
+    WorldEditorState          editor(selection, &extensions);
+    editor.Bind(&document);
+    editor.Create("empty");
+    auto      *actor = document.GetWorld()->GetActors().front().get();
+    const auto type  = TypeInfo<aurora::SkeletalMeshComponent>::RegisteredId();
+    ASSERT_TRUE(editor.RequestAddComponent(type));
+    editor.Tick();
+    auto  old         = actor->DetachComponent(type);
+    auto *replacement = actor->AddComponent<aurora::SkeletalMeshComponent>();
+    document.ClearDirty();
+    EXPECT_FALSE(EditorCore::GetCommandService().Undo());
+    EXPECT_EQ(actor->GetComponent(type), replacement);
+    EXPECT_FALSE(document.IsDirty());
+
+    EditorCore::GetCommandService().Clear();
+    ASSERT_TRUE(editor.RequestAddComponent(control.GetComponentType()));
+    editor.Tick();
+    auto *animation = actor->GetComponent(control.GetComponentType());
+    ASSERT_NE(animation, nullptr);
+    auto previous = actor->DetachComponent(type);
+    replacement   = actor->AddComponent<aurora::SkeletalMeshComponent>();
+    document.ClearDirty();
+    EXPECT_FALSE(EditorCore::GetCommandService().Undo());
+    EXPECT_EQ(actor->GetComponent(type), replacement);
+    EXPECT_EQ(actor->GetComponent(control.GetComponentType()), animation);
+    EXPECT_FALSE(document.IsDirty());
+    editor.Bind(nullptr);
+}

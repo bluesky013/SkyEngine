@@ -1,5 +1,7 @@
 #include <framework/asset/AssetDataBase.h>
 
+#include "SourceManifestTransaction.h"
+
 #include <algorithm>
 #include <core/logger/Logger.h>
 
@@ -20,6 +22,7 @@ namespace sky {
 
     ProductStatus AssetDataBase::PublishGeneratedCatalog(const Uuid &owner, const GeneratedAssetManifest &manifest)
     {
+        std::lock_guard publish(assetMutex);
         if (const auto status = CheckGeneratedCatalogConflicts(owner, manifest); !status) {
             return status;
         }
@@ -33,7 +36,7 @@ namespace sky {
 
     bool AssetDataBase::RefreshOwner(const Uuid &owner)
     {
-        std::lock_guard lock(assetMutex);
+        std::lock_guard writeLock(*mutationMutex);
         const auto      source = idMap.find(owner);
         if (source == idMap.end()) {
             return false;
@@ -44,7 +47,8 @@ namespace sky {
             return false;
         }
         manifests.Invalidate(fs, path.Parent());
-        const auto *entry = manifests.Get(fs, path.Parent()).Find(path.FileName());
+        const auto  snapshot = manifests.Get(fs, path.Parent());
+        const auto *entry    = snapshot->Find(path.FileName());
         if (entry && entry->id != owner) {
             LOG_E("AssetDataBase", "Source manifest identity changed: %s", path.GetStr().c_str());
             return false;
@@ -63,12 +67,14 @@ namespace sky {
         return true;
     }
 
-    ProductStatus AssetDataBase::UpdateGeneratedProducts(const Uuid                               &owner,
-                                                         std::span<const GeneratedAssetDescriptor> requested,
-                                                         const std::map<std::string, std::string> &defaults,
-                                                         GeneratedAssetManifest                   &out)
+    ProductStatus AssetDataBase::UpdateGeneratedProducts(const Uuid                                         &owner,
+                                                         std::span<const GeneratedAssetDescriptor>           requested,
+                                                         const std::map<std::string, std::string>           &defaults,
+                                                         GeneratedAssetManifest                             &out,
+                                                         const std::shared_ptr<const AssetPublicationGuard> &publication)
     {
-        std::lock_guard guard(assetMutex);
+        std::lock_guard writeLock(*mutationMutex);
+        const auto      cancelled = SourceCancellation();
         const auto      source = idMap.find(owner);
         if (source == idMap.end()) {
             return {ProductError::NotFound, "generated asset source is not registered"};
@@ -80,8 +86,13 @@ namespace sky {
         }
         const auto &filesystem = mountFsList[mount];
         if (!mountInfos[mount].writable) {
+            if (publication) {
+                if (const auto status = publication->CheckSource(owner, filesystem, path); !status)
+                    return status;
+            }
             manifests.Invalidate(filesystem, path.Parent());
-            const auto            *entry = manifests.Get(filesystem, path.Parent()).Find(path.FileName());
+            const auto             snapshot = manifests.Get(filesystem, path.Parent());
+            const auto            *entry    = snapshot->Find(path.FileName());
             GeneratedAssetManifest previous, next;
             if (entry && entry->id != owner) {
                 return {ProductError::OwnerConflict, "read-only source identity differs"};
@@ -103,15 +114,13 @@ namespace sky {
                 return status;
             }
             out = std::move(next);
-            return {};
+            return {ProductError::None, {}, AssetCommitState::NotCommitted};
         }
-        FileLockPtr fileLock;
-        if (const auto status = filesystem->AcquireFileLock(path.Parent() / FilePath("assets.jsonl.lock"), fileLock); !status) {
-            return {status.error == FileOperationError::Busy ? ProductError::Busy : ProductError::IOError, status.message};
-        }
-        AssetIndexFile manifest("file", "cook");
-        if (const auto status = manifests.Reload(filesystem, path.Parent(), manifest); !status)
-            return {ProductError::IOError, status.message};
+        SourceManifestTransaction transaction(manifests, filesystem, path.Parent(), cancelled);
+        if (const auto status = transaction.Open(); !status)
+            return {status.error == FileOperationError::Busy ? ProductError::Busy : ProductError::IOError, status.message,
+                    AssetCommitState::NotCommitted, "open-manifest"};
+        auto       &manifest = transaction.manifest;
         const auto *entry = manifest.Find(path.FileName());
         if (!entry || entry->id != owner) {
             return {ProductError::InvalidData, "source manifest identity changed"};
@@ -126,17 +135,24 @@ namespace sky {
         if (const auto status = CheckGeneratedCatalogConflicts(owner, next); !status) {
             return status;
         }
+        if (publication) {
+            if (const auto status = publication->CheckSource(owner, filesystem, path); !status)
+                return status;
+        }
         auto updated      = *entry;
         updated.generated = SerializeGeneratedAssets(next);
         manifest.Set(updated);
-        if (!manifests.Save(filesystem, path.Parent(), manifest)) {
-            return {ProductError::IOError, "generated asset manifest save failed"};
-        }
-        if (const auto status = PublishGeneratedCatalog(owner, next); !status) {
+        if (const auto saved = transaction.Commit(manifest); !saved)
+            return {saved.status.error == FileOperationError::Busy ? ProductError::Busy : ProductError::IOError, saved.status.message,
+                    AssetCommitState::NotCommitted, "commit-manifest", saved.recovery};
+        transaction.Unlock();
+        out = next;
+        if (auto status = PublishGeneratedCatalog(owner, next); !status) {
+            status.state = AssetCommitState::CommittedNeedsRepair;
+            status.stage = "publish-catalog";
             return status;
         }
-        out = std::move(next);
-        return {};
+        return {ProductError::None, {}, AssetCommitState::Committed};
     }
 
     bool AssetDataBase::GetOwner(const Uuid &id, Uuid &out) const

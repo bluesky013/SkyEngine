@@ -132,7 +132,8 @@ namespace sky::editor {
                 return ViewportId{};
             return ViewportId{nextViewportId++, 1};
         });
-        AssetPreviewProviderRegistry::Get()->SetProvider(previewSessions.get());
+        if (!AssetPreviewProviderRegistry::Get()->SetProvider(previewSessions.get()))
+            LOG_W("EditorRender", "Preview ground defaults could not be applied");
 #if defined(SKY_BUILD_FREETYPE)
         if (freeTypeFont.LoadFont(SandboxResources::Resolve("fonts/OpenSans-Regular.ttf")) && freeTypeFont.IsReady())
             textSystem = std::make_unique<ui::UITextSystem>(&freeTypeFont, textures.get(), 256);

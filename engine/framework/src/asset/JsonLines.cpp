@@ -2,8 +2,9 @@
 // Created by blues on 2026/10/2.
 //
 
-#include <core/util/Uuid.h>
 #include <framework/asset/JsonLines.h>
+
+#include <core/util/Uuid.h>
 
 namespace sky {
 
@@ -31,17 +32,27 @@ namespace sky {
         return lines;
     }
 
-    bool SaveAtomic(const FileSystemPtr &fs, const FilePath &path, const std::string &text)
+    AssetFileWriteResult SaveAtomic(const FileSystemPtr &fs, const FilePath &path, const std::string &text)
     {
-        if (fs == nullptr) {
-            return false;
+        AssetFileWriteResult result;
+        if (!fs) {
+            result.status = {FileOperationError::InvalidPath, "Atomic write requires a filesystem"};
+            return result;
         }
-
-        const FilePath tempPath(path.GetStr() + "." + Uuid::Create().ToString() + ".tmp");
-        if (!fs->WriteFileExclusive(tempPath, {reinterpret_cast<const uint8_t *>(text.data()), text.size()})) {
-            return false;
+        const FilePath temporary(path.GetStr() + "." + Uuid::Create().ToString() + ".tmp");
+        result.status = fs->WriteFileExclusive(temporary, {reinterpret_cast<const uint8_t *>(text.data()), text.size()});
+        if (!result.status) {
+            // A failed exclusive write does not prove ownership of a surviving path.
+            if (result.status.error != FileOperationError::AlreadyExists && fs->FileExist(temporary))
+                result.recovery.push_back({"write-temporary", fs->GetPath() / temporary, result.status});
+            return result;
         }
-        return static_cast<bool>(fs->ReplaceFileAtomic(tempPath, path));
+        result.status = fs->ReplaceFileAtomic(temporary, path);
+        if (!result.status) {
+            if (const auto cleanup = fs->RemoveFile(temporary); !cleanup)
+                result.recovery.push_back({"remove-temporary", fs->GetPath() / temporary, cleanup});
+        }
+        return result;
     }
 
 } // namespace sky

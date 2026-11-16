@@ -8,20 +8,12 @@
 
 namespace sky::editor {
 
-    Any MakeDefaultValue(const sky::TypeInfoRT *type)
+    DefaultPropertyObject MakeDefaultObject(const sky::TypeInfoRT *type)
     {
-        if (type == nullptr || type->newFunc == nullptr) {
-            return {};
+        if (type == nullptr || type->newFunc == nullptr || type->deleteFunc == nullptr) {
+            return {nullptr, nullptr};
         }
-        void *instance = type->newFunc();
-        if (instance == nullptr) {
-            return {};
-        }
-        Any value = Any::Create(type, instance);
-        if (type->deleteFunc != nullptr) {
-            type->deleteFunc(instance);
-        }
-        return value;
+        return {type->newFunc(), type->deleteFunc};
     }
 
 } // namespace sky::editor

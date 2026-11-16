@@ -34,6 +34,8 @@ namespace sky::editor {
         EditorExtensionHost               *extensions = nullptr;
         WorldDocument                     *document   = nullptr;
         WorldPtr                           world;
+        std::shared_ptr<void>              bindingLifetime = std::make_shared<char>();
+        std::weak_ptr<void>                documentLifetime;
         std::vector<std::pair<Uuid, Uuid>> pendingComponents;
         bool                               refreshSelection = false;
     };

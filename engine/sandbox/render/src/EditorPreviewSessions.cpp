@@ -124,7 +124,7 @@ namespace sky::editor {
     }
     bool EditorPreviewSessions::SetGroundAssets(const Uuid &mesh, const Uuid &material)
     {
-        if (stopped || !sessions.empty() || !mesh || !material)
+        if (stopped || bool(mesh) != bool(material))
             return false;
         groundMesh     = mesh;
         groundMaterial = material;
@@ -153,6 +153,8 @@ namespace sky::editor {
             return AssetPreviewError{AssetPreviewErrorCode::Capacity, "Preview texture IDs exhausted"};
         auto session     = std::make_unique<Session>();
         session->input   = std::move(input);
+        session->groundMesh     = groundMesh;
+        session->groundMaterial = groundMaterial;
         session->handle  = {Uuid::Create(), generation};
         session->output  = output;
         session->view    = {nextScene++, 1};
@@ -286,7 +288,7 @@ namespace sky::editor {
             if (session.input.showGround && !session.ground && session.error.empty()) {
                 const auto bounds = session.input.subjectBounds ? session.input.subjectBounds : SubjectBounds(*session.bridge);
                 if (bounds) {
-                    session.ground = CreateGround(*bounds, groundMesh, groundMaterial);
+                    session.ground = CreateGround(*bounds, session.groundMesh, session.groundMaterial);
                     if (!session.ground)
                         session.error = "Could not create the preview ground from the subject bounds";
                 }

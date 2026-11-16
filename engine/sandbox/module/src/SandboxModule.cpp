@@ -862,8 +862,8 @@ namespace sky::editor {
             sky::NativeFileSystemPtr engineFs = new sky::NativeFileSystem(Platform::Get()->GetBundlePath());
             sky::AssetDataBase::Get()->SetEngineFs(engineFs);
             sky::AssetDataBase::Get()->SetWorkSpaceFs(workFs->CreateSubSystem("assets", true));
-            if (const auto failure = sky::AssetDataBase::Get()->Load()) {
-                error = "Failed to scan assets at " + failure->path.GetStr() + ": " + failure->code.message();
+            if (const auto failure = AssetDataBase::Get()->Load(); !failure.Succeeded()) {
+                error = "Failed to scan assets at " + failure.errors.front().path.GetStr() + ": " + failure.errors.front().code.message();
                 sky::AssetDataBase::Get()->Reset();
                 sky::AssetDataBase::Get()->SetWorkSpaceFs({});
                 sky::AssetDataBase::Get()->SetEngineFs({});
@@ -1297,7 +1297,7 @@ namespace sky::editor {
                           }});
             actions->Add({.id = "asset.delete", .label = "Delete", .enabled = selectedWritable, .invoke = [selectedAsset]() {
                               if (const auto status = AssetMutationService::Get()->Delete(selectedAsset()); !status)
-                                  LOG_E(TAG, "Asset deletion failed: %s", status.message.c_str());
+                                  LOG_E(TAG, "Asset deletion failed: %s", status.Describe().c_str());
                           }});
         }
         actions->Add({.id      = "play.play",
@@ -1827,8 +1827,8 @@ namespace sky::editor {
         if (initialized) {
             // Command-line projects open during Init, before later modules register their builders.
             if (!hubMode) {
-                if (const auto error = AssetDataBase::Get()->RebuildCacheFromScan())
-                    LOG_E(TAG, "Cannot refresh project assets after module registration: %s", error->code.message().c_str());
+                if (const auto error = AssetDataBase::Get()->RebuildCacheFromScan(); !error.Succeeded())
+                    LOG_E(TAG, "Cannot refresh project assets after module registration: %s", error.errors.front().code.message().c_str());
                 else
                     EditorAssetCatalog::Get()->Refresh();
             }

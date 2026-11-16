@@ -31,7 +31,7 @@ namespace sky::aurora::cook {
         }
         Uuid fallback = config.defaultMaterial;
         if (!fallback) {
-            const auto source = AssetDataBase::Get()->RegisterAsset("engine", FilePath(scene_assets::UNLIT), false);
+            const auto source = AssetDataBase::Get()->FindAsset("engine", FilePath(scene_assets::UNLIT));
             if (!source)
                 return {MeshCookError::InvalidData, "Engine default mesh material is unavailable; configure defaultMaterial"};
             fallback = source->uuid;

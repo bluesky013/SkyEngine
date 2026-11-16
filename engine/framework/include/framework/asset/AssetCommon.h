@@ -4,18 +4,22 @@
 
 #pragma once
 
+#include <atomic>
 #include <core/event/Event.h>
 #include <core/file/FileSystem.h>
 #include <core/template/ReferenceObject.h>
 #include <core/util/Uuid.h>
 #include <framework/serialization/Any.h>
 #include <map>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace sky {
+
+    class AssetPublicationGuard;
 
     // A source mount: an ordered entry of the logical namespace. Sources resolve against mounts in
     // order (earlier mounts shadow later ones). Provided by the framework so consumers do not probe
@@ -32,6 +36,7 @@ namespace sky {
         std::string       name;         // marked name used to load by name, can be empty
         std::string       ext;          // file extension (source of the derived AssetTypeId)
         std::string       mount;        // owning mount id (see AssetMount::id)
+        std::shared_ptr<std::atomic<uint64_t>> revision = std::make_shared<std::atomic<uint64_t>>(1);
         Uuid              uuid;         // uuid of the asset
         std::vector<Uuid> dependencies; // dependent assets
     };
@@ -52,6 +57,11 @@ namespace sky {
     struct AssetBuildRequest {
         FilePtr          file;
         AssetSourcePtr   assetInfo;
+        std::shared_ptr<const AssetPublicationGuard> publication;
+        std::string                                  inputFingerprint;
+        std::string                                  localRevision;
+        uint64_t                                     sourceRevision = 0;
+        std::string                                  cookJson;
         ProductBundleKey target; // logical cook target (override/state key)
         ProductBundleKey bundle; // resolved product bundle (preset key); falls back to `target`
         // Resolved per-asset cook override for `target` (sparse: only overridden keys). Applied by the

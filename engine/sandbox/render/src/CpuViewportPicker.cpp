@@ -113,8 +113,8 @@ namespace sky::editor {
         std::shared_ptr<const RenderResourcePayload> Geometry(const SceneGeometryInstance &instance, const SceneResourcePart &part)
         {
             for (const auto &payload : instance.resources->payloads)
-                if (payload.resource == part.mesh.resource)
-                    return {instance.resources, &payload};
+                if (payload && payload->resource == part.mesh.resource)
+                    return payload;
             return {};
         }
         uint64_t TriangleCount(const RenderResourcePayload &payload)
@@ -936,8 +936,8 @@ namespace sky::editor {
                 result.surface = supported;
                 if (!result.bounds)
                     for (const auto &payload : source.resources->payloads)
-                        if (payload.mesh && payload.metadata.bounds)
-                            merge(AABB::Transform(*payload.metadata.bounds, source.world));
+                        if (payload && payload->mesh && payload->metadata.bounds)
+                            merge(AABB::Transform(*payload->metadata.bounds, source.world));
             }
         }
         if (impl->preparedProviders == impl->providers->generation && impl->proxyStatus == ViewportPickStatus::HIT) {

@@ -8,6 +8,7 @@
 #include <framework/asset/AssetBuilder.h>
 #include <framework/asset/AssetCommon.h>
 #include <framework/asset/AssetExecutor.h>
+#include <framework/asset/AssetProduct.h>
 #include <framework/asset/CookConfig.h>
 #include <framework/asset/ICookRunner.h>
 #include <functional>
@@ -16,6 +17,8 @@
 #include <queue>
 
 namespace sky {
+
+    class AssetDataBase;
 
     class AssetBuilderManager : public Singleton<AssetBuilderManager> {
     public:
@@ -52,6 +55,7 @@ namespace sky {
         // onFinished (optional) runs on the cook-pool thread after the result is broadcast.
         using BuildCompletion = std::function<void(const AssetBuildResult &result)>;
 
+        ProductStatus PrepareRequest(const Uuid &uuid, const std::string &target, AssetBuildRequest &out, AssetDataBase *database = nullptr);
         void BuildRequest(const AssetBuildRequest &request, BuildCompletion onFinished = {});
         void BuildRequest(const Uuid &uuid, const std::string &target, BuildCompletion onFinished = {});
         // Runs the builder inline (used by the in-process on-demand cook path).
@@ -59,19 +63,20 @@ namespace sky {
 
         // Mode-agnostic cook of one (uuid, target): dispatches to the out-of-process worker when active,
         // otherwise cooks in-process. The single entry point for explicit/editor cooks; the build-finished
-        // event fires in both modes (`onFinished` is honored in-process only).
+        // event fires in both modes; every subscriber receives a completion.
         void RequestCook(const Uuid &uuid, const std::string &target, BuildCompletion onFinished = {});
 
         // Unified cook/build configuration (bundles, presets, platform targets).
         CookConfig GetCookConfig() const
         {
-            std::lock_guard<std::mutex> lock(configMutex);
+            std::lock_guard<std::mutex> lock(*configMutex);
             return config;
         }
         void SetCookConfig(CookConfig c)
         {
-            std::lock_guard<std::mutex> lock(configMutex);
+            std::lock_guard<std::mutex> lock(*configMutex);
             config = std::move(c);
+            configRevision->fetch_add(1, std::memory_order_acq_rel);
         }
 
         AssetBuilder *QueryBuilder(const std::string &ext) const;
@@ -103,8 +108,12 @@ namespace sky {
         NativeFileSystemPtr                                           engineFs;
         NativeFileSystemPtr                                           workSpaceFs;
         NativeFileSystemPtr                                           intermediateFs;
+        std::shared_ptr<std::atomic<uint64_t>>                        configRevision = std::make_shared<std::atomic<uint64_t>>(1);
+        std::vector<FilePath> configInputs{FilePath("asset_cook.jsonc"), FilePath("asset_build_presets.json")};
+        std::string           loadedConfigFingerprint;
+        bool                  loadedConfigFilesValid = true;
         CookConfig                                                    config;
-        mutable std::mutex                                            configMutex;
+        std::shared_ptr<std::mutex>                                   configMutex = std::make_shared<std::mutex>();
         std::unique_ptr<ICookRunner>                                  cookRunner;
         bool                                                          forceInProcess     = false;
         bool                                                          outOfProcessActive = false;

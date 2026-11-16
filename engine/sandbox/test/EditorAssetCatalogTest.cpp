@@ -228,7 +228,7 @@ TEST(EditorAssetCatalog, VpathTreeFromRegisteredSources)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto *catalog = EditorAssetCatalog::Get();
     auto  roots   = catalog->GetRoots();
@@ -422,7 +422,7 @@ TEST(EditorAssetCatalog, MutationPreservesIdentity)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto           *catalog = EditorAssetCatalog::Get();
     EditorAssetItem item;
@@ -448,7 +448,7 @@ TEST(EditorAssetCatalog, MutationPreservesIdentity)
     EXPECT_FALSE(catalog->FindByPath("Project/b.txt", moved));
     EXPECT_FALSE(workSpace->FileExist("b.txt"));
     db->Reset();
-    ASSERT_FALSE(db->RebuildCacheFromScan());
+    ASSERT_TRUE(db->RebuildCacheFromScan().Succeeded());
     EXPECT_FALSE(catalog->FindByPath("Project/b.txt", moved));
     EXPECT_FALSE(db->FindAsset(original));
     ASSERT_TRUE(catalog->FindByPath("Project/c.txt", duplicated));
@@ -485,7 +485,7 @@ TEST(EditorAssetCatalog, CookTargetsAndPerTargetState)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();
@@ -610,7 +610,7 @@ TEST(EditorAssetCatalog, CookOverrideReadWrite)
     auto              *db        = sky::AssetDataBase::Get();
     db->Reset();
     db->SetWorkSpaceFs(workSpace);
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     auto *catalog = EditorAssetCatalog::Get();
     catalog->Refresh();

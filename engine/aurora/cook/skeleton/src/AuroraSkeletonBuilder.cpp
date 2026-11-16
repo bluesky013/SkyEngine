@@ -118,8 +118,8 @@ namespace sky::aurora {
             result.error = status.message;
             return;
         }
-        if (const auto saved = manager->SaveAsset(asset, bundle); !saved) {
-            result.error = saved.message;
+        if (const auto saved = manager->SaveAsset(asset, bundle, request.publication); !saved) {
+            result.error = saved.Describe();
             return;
         }
         result.retCode = AssetBuildRetCode::SUCCESS;

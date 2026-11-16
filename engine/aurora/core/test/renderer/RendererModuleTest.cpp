@@ -487,7 +487,7 @@ namespace {
             entity.world.v[14] = .5f;
             packet->commands.push_back(CreateRenderEntity{{scene, {0, 1}}, entity});
             for (const auto &payload : resources->payloads)
-                packet->commands.push_back(ResourceCpuReady{payload});
+                packet->commands.push_back(ResourceCpuReady{*payload});
         }
         packet->readbacks.push_back(output);
         ASSERT_EQ(renderer->TrySubmit(packet).status, PacketSubmitStatus::ACCEPTED);
@@ -702,8 +702,8 @@ namespace {
         ASSERT_EQ(overridden->parts.size(), 1u);
         const auto findPayload = [](const SceneMeshResources &resources, const Uuid &id) -> const RenderResourcePayload * {
             const auto found = std::find_if(resources.payloads.begin(), resources.payloads.end(),
-                                            [&](const auto &payload) { return payload.resource.product == id; });
-            return found == resources.payloads.end() ? nullptr : &*found;
+                                            [&](const auto &payload) { return payload->resource.product == id; });
+            return found == resources.payloads.end() ? nullptr : found->get();
         };
         const auto *oldImage    = findPayload(*overridden, imageB->GetUuid());
         const auto *oldMaterial = findPayload(*overridden, instance->GetUuid());
@@ -794,9 +794,9 @@ namespace {
         std::vector<RenderResourceKey> supplied;
         for (const auto *resources : {base.get(), overridden.get()})
             for (const auto &payload : resources->payloads)
-                if (payload.resource != oldImage->resource && std::find(supplied.begin(), supplied.end(), payload.resource) == supplied.end()) {
-                    first->commands.push_back(ResourceCpuReady{payload});
-                    supplied.push_back(payload.resource);
+                if (payload->resource != oldImage->resource && std::find(supplied.begin(), supplied.end(), payload->resource) == supplied.end()) {
+                    first->commands.push_back(ResourceCpuReady{*payload});
+                    supplied.push_back(payload->resource);
                 }
         std::map<uint32_t, ViewportReadback> pixels;
         ASSERT_TRUE(finish(std::move(first), std::span(outputs).first(2), pixels));
@@ -917,7 +917,7 @@ TEST(RendererModule, MetalSelectionOutlineUsesTypedParametersAndExactEntityGener
     desc.world.v[14] = .5f;
     first->commands.push_back(CreateRenderEntity{entity, desc});
     for (const auto &payload : resources->payloads)
-        first->commands.push_back(ResourceCpuReady{payload});
+        first->commands.push_back(ResourceCpuReady{*payload});
     ASSERT_FALSE(RegisterScenePass(*first, {0, 1}, sources));
     std::vector<uint8_t> baseline, outlined, cleared, stale;
     ASSERT_TRUE(finish(std::move(first), baseline));

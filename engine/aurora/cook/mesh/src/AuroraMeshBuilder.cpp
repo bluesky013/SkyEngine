@@ -194,8 +194,10 @@ namespace sky::aurora {
         defaults["mesh"]              = "$source";
         const auto             bundle = request.bundle.empty() ? bundleKey : request.bundle;
         GeneratedAssetManifest manifest;
-        if (const auto status = AssetDataBase::Get()->UpdateGeneratedProducts(request.assetInfo->uuid, descriptors, defaults, manifest); !status) {
-            result.error = status.message;
+        if (const auto status =
+                AssetDataBase::Get()->UpdateGeneratedProducts(request.assetInfo->uuid, descriptors, defaults, manifest, request.publication);
+            !status) {
+            result.error = status.Describe();
             return;
         }
         std::map<std::string, Uuid> ids{{"$source", request.assetInfo->uuid}};
@@ -244,8 +246,8 @@ namespace sky::aurora {
             products.push_back(skinProduct);
             products.push_back(rigProduct);
         }
-        if (const auto status = manager->SaveProducts(products, bundle); !status) {
-            result.error = status.message;
+        if (const auto status = manager->SaveProducts(products, bundle, request.publication); !status) {
+            result.error = status.Describe();
             return;
         }
         request.assetInfo->dependencies = std::move(dependencies);

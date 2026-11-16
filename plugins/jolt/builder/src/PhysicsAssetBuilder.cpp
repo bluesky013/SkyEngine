@@ -47,13 +47,12 @@ namespace sky::phy {
         }
         const AssetProductData product{request.assetInfo->uuid, std::string(type), {}, {encoded.begin(), encoded.end()}};
         const auto            &bundle    = request.bundle.empty() ? request.target : request.bundle;
-        const auto             published = AssetManager::Get()->SaveProductData(std::span(&product, 1), bundle);
+        const auto             published = AssetManager::Get()->SaveProductData(std::span(&product, 1), bundle, request.publication);
         if (!published) {
-            result.error = published.message;
+            result.error = published.Describe();
             return;
         }
         request.assetInfo->dependencies.clear();
-        AssetDataBase::Get()->SetBuildDependencies(product.uuid, {});
         result.error.clear();
         result.retCode = AssetBuildRetCode::SUCCESS;
     }

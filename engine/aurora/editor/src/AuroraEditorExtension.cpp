@@ -34,19 +34,16 @@ namespace sky::aurora::editor {
         creationSettings = {};
         if (const auto source = AssetDataBase::Get()->FindAsset("engine", FilePath(scene_assets::LIT)))
             creationSettings.material = source->uuid;
-        if (auto *preview = sky::editor::AssetPreviewProviderRegistry::Get()->GetProvider()) {
-            const auto plane = AssetDataBase::Get()->FindAsset("engine", FilePath(scene_assets::PLANE));
-            if (!plane || !preview->SetGroundAssets(plane->uuid, creationSettings.material))
-                LOG_W("AuroraEditor", "Preview ground assets are unavailable.");
-        }
+        const auto plane = AssetDataBase::Get()->FindAsset("engine", FilePath(scene_assets::PLANE));
+        if (!plane || !sky::editor::AssetPreviewProviderRegistry::Get()->SetGroundAssets(plane->uuid, creationSettings.material))
+            LOG_W("AuroraEditor", "Preview ground assets are unavailable.");
         auto                       &pages = sky::editor::ProjectEditorSettings::Get()->Pages();
         sky::editor::PreferencePage page{"aurora.creation", "Object Creation / Mesh", &creationSettings,
                                          GetTypeNode(TypeInfo<MeshCreationSettings>::RegisteredId())};
         page.validate = [](const sky::editor::PreferencePage &value) {
             return ValidateMeshCreationSettings(*static_cast<const MeshCreationSettings *>(value.object));
         };
-        pages.Add(std::move(page));
-        settingsRegistration               = pages.GetPages().back().registration;
+        settingsRegistration               = pages.Add(std::move(page));
         creationLifetime                   = std::make_shared<char>();
         const std::weak_ptr<void> lifetime = creationLifetime;
         for (const bool cube : {true, false}) {
@@ -118,6 +115,7 @@ namespace sky::aurora::editor {
 
     void AuroraEditorExtension::Unregister()
     {
+        sky::editor::AssetPreviewProviderRegistry::Get()->SetGroundAssets({}, {});
         creationLifetime.reset();
         for (const auto &id : creators)
             sky::editor::EditorActorCreation::Get()->UnRegisterCreation(id);

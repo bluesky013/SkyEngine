@@ -55,11 +55,11 @@ namespace {
             data->parts.push_back({0, {mesh, 1}, {material, 1}});
             if (staticOpaque)
                 data->parts.back().surface = SceneSurfaceFacts::StaticOpaque();
-            data->payloads.push_back({mesh, Name("mesh"), {1, 2, 3, 4}});
-            data->payloads.push_back({material, Name("material"), {5, 6, 7, 8}});
+            auto geometry = std::make_shared<RenderResourcePayload>(RenderResourcePayload{mesh, Name("mesh"), {1, 2, 3, 4}});
+            data->payloads.push_back(geometry);
+            data->payloads.push_back(std::make_shared<const RenderResourcePayload>(RenderResourcePayload{material, Name("material"), {5, 6, 7, 8}}));
             if (staticOpaque)
-                data->payloads.front().mesh =
-                    RenderMeshData{{{0, 36, 12}}, {{0, 0, 0, Format::F_RGB32, "POSITION", 0}}, {{36, 6, IndexType::U16, {3}}}};
+                geometry->mesh = RenderMeshData{{{0, 36, 12}}, {{0, 0, 0, Format::F_RGB32, "POSITION", 0}}, {{36, 6, IndexType::U16, {3}}}};
             return std::shared_ptr<const SceneMeshResources>(data);
         }
     };
@@ -376,7 +376,7 @@ TEST_F(SceneBridgeTest, OwnedGeometrySnapshotTracksParentsAndSurvivesWorldRetire
     bridge.SetWorld(nullptr);
     world.Reset(nullptr);
     EXPECT_FALSE(bridge.GeometrySnapshot());
-    EXPECT_EQ(first->instances[0].resources->payloads[0].bytes.size(), 4u);
+    EXPECT_EQ(first->instances[0].resources->payloads[0]->bytes.size(), 4u);
 }
 
 TEST_F(SceneBridgeTest, PendingReadinessDoesNotInvalidateUnchangedClickContext)

@@ -36,11 +36,11 @@ namespace sky::aurora {
     };
     struct SceneMeshResources {
         std::vector<SceneResourcePart>     parts;
-        std::vector<RenderResourcePayload> payloads;
+        std::vector<std::shared_ptr<const RenderResourcePayload>> payloads;
     };
     struct SceneMaterialResources {
         RenderResourcePayload              material;
-        std::vector<RenderResourcePayload> dependencies;
+        std::vector<std::shared_ptr<const RenderResourcePayload>> dependencies;
         SceneSurfaceFacts                  surface;
     };
     using SceneMaterialResult = std::variant<std::monostate, RendererError, std::shared_ptr<const SceneMaterialResources>>;
@@ -56,10 +56,11 @@ namespace sky::aurora {
     {
         if (!part.surface.SupportsGeometry())
             return false;
-        const auto payload = std::ranges::find_if(resources.payloads, [&](const auto &value) { return value.resource == part.mesh.resource; });
-        if (payload == resources.payloads.end() || !payload->mesh || payload->mesh->lods.empty())
+        const auto payload =
+            std::ranges::find_if(resources.payloads, [&](const auto &value) { return value && value->resource == part.mesh.resource; });
+        if (payload == resources.payloads.end() || !(*payload)->mesh || (*payload)->mesh->lods.empty())
             return false;
-        const auto &mesh     = *payload->mesh;
+        const auto &mesh     = *(*payload)->mesh;
         const auto  position = std::ranges::find_if(mesh.attributes, [](const auto &value) {
             return value.semantic == "POSITION" && value.semanticIndex == 0 && value.format == Format::F_RGB32;
         });
@@ -99,6 +100,10 @@ namespace sky::aurora {
     class ISceneResourceSource {
     public:
         virtual ~ISceneResourceSource() = default;
+        virtual uint64_t CachedCpuPayloadBytes() const
+        {
+            return 0;
+        }
         // Pending is explicit; successful results own all CPU data and exact versions.
         virtual SceneResourceResult ResolveMesh(const Uuid &mesh, const Uuid &material, RendererInfo info) = 0;
         virtual SceneMaterialResult ResolveMaterial(const Uuid &, RendererInfo, VertexSemanticMask, bool skeletal = false)

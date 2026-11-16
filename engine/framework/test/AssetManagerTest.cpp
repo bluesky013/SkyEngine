@@ -22,6 +22,7 @@
 #include <framework/world/WorldAsset.h>
 #include <test/EngineRoot.h>
 
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
@@ -178,14 +179,14 @@ namespace {
         ASSERT_TRUE(std::filesystem::remove(engine, error));
         ASSERT_FALSE(error);
         const auto failure = database.RebuildCacheFromScan();
-        ASSERT_TRUE(failure);
-        EXPECT_EQ(failure->path, FilePath(engine));
-        EXPECT_EQ(failure->code, std::errc::no_such_file_or_directory);
+        ASSERT_FALSE(failure.Succeeded());
+        EXPECT_EQ(failure.errors.front().path, FilePath(engine));
+        EXPECT_EQ(failure.errors.front().code, std::errc::no_such_file_or_directory);
         EXPECT_TRUE(database.GetSources().empty());
         EXPECT_FALSE(std::filesystem::exists(workspace / "assets.jsonl", error));
         ASSERT_TRUE(std::filesystem::create_directory(engine, error));
         ASSERT_FALSE(error);
-        EXPECT_FALSE(database.RebuildCacheFromScan());
+        EXPECT_TRUE(database.RebuildCacheFromScan().Succeeded());
         ASSERT_EQ(database.GetSources().size(), 1u);
         EXPECT_NE(database.FindAsset(FilePath("scene.world")), nullptr);
     }
@@ -201,12 +202,12 @@ namespace {
         ASSERT_TRUE(std::filesystem::remove(engine, error));
         ASSERT_FALSE(error);
         const auto failure = database.Load();
-        ASSERT_TRUE(failure);
-        EXPECT_EQ(failure->path, FilePath(engine));
+        ASSERT_FALSE(failure.Succeeded());
+        EXPECT_EQ(failure.errors.front().path, FilePath(engine));
         EXPECT_TRUE(database.GetSources().empty());
         ASSERT_TRUE(std::filesystem::create_directory(engine, error));
         ASSERT_FALSE(error);
-        EXPECT_FALSE(database.Load());
+        EXPECT_TRUE(database.Load().Succeeded());
         const auto restored = database.FindAsset(FilePath("scene.world"));
         ASSERT_NE(restored, nullptr);
         EXPECT_EQ(restored->uuid, id);
@@ -217,12 +218,12 @@ namespace {
         std::error_code error;
         ASSERT_TRUE(std::filesystem::remove(engine, error));
         ASSERT_FALSE(error);
-        EXPECT_TRUE(database.MigrateLegacyIdentity());
+        EXPECT_FALSE(database.MigrateLegacyIdentity().Succeeded());
         EXPECT_TRUE(database.GetSources().empty());
         ASSERT_TRUE(std::filesystem::create_directory(engine, error));
         ASSERT_FALSE(error);
         std::ofstream(engine / "engine.world") << "{}";
-        EXPECT_FALSE(database.RebuildCacheFromScan());
+        EXPECT_TRUE(database.RebuildCacheFromScan().Succeeded());
         EXPECT_NE(database.FindAsset(FilePath("engine.world")), nullptr);
         EXPECT_FALSE(std::filesystem::exists(engine / "assets.jsonl", error));
         EXPECT_FALSE(error);
@@ -576,7 +577,7 @@ public:
 TEST_F(AssetManagerTest, BuilderTest)
 {
     auto *db = AssetDataBase::Get();
-    EXPECT_FALSE(db->Load().has_value());
+    EXPECT_TRUE(db->Load().Succeeded());
     auto src = db->RegisterAsset("framework/data/test_asset.t3");
     db->Save();
     db->Dump(std::cout);
@@ -656,7 +657,7 @@ TEST_F(AssetManagerTest, MountProvenanceTest)
     EXPECT_EQ(shared->mount, "workspace");
 
     // Read-only identity is stable across a rescan and no manifest is written for the engine mount.
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
     auto engAgain = db->RegisterAsset(FilePath("framework/data/eng_only.t3"), false);
     ASSERT_NE(engAgain, nullptr);
     EXPECT_EQ(engAgain->uuid, engUuid);
@@ -694,7 +695,7 @@ TEST_F(AssetManagerTest, MigrateLegacyIdentityTest)
     db->SetWorkSpaceFs((new NativeFileSystem(root.string()))->CreateSubSystem("assets", true));
 
     // Migration seeds the legacy (bundle, path) UUID reproduced via the mount->legacy bundle mapping.
-    EXPECT_FALSE(db->MigrateLegacyIdentity().has_value());
+    EXPECT_TRUE(db->MigrateLegacyIdentity().Succeeded());
 
     auto src = db->FindAsset(FilePath("framework/data/m.t3"));
     ASSERT_NE(src, nullptr);
@@ -705,7 +706,7 @@ TEST_F(AssetManagerTest, MigrateLegacyIdentityTest)
     EXPECT_TRUE(src->uuid == Uuid::CreateWithSeed(hash));
 
     // Idempotent: re-running the migration keeps the same identity.
-    EXPECT_FALSE(db->MigrateLegacyIdentity().has_value());
+    EXPECT_TRUE(db->MigrateLegacyIdentity().Succeeded());
     EXPECT_TRUE(db->FindAsset(FilePath("framework/data/m.t3"))->uuid == src->uuid);
 
     // Restore the suite fixture's mounts for the remaining tests.
@@ -769,13 +770,14 @@ TEST_F(AssetManagerTest, MutationTest)
 
     // Move preserves identity.
     auto movedAsset = db->MoveAsset(FilePath{FilePath(src)}, FilePath{FilePath(moved)});
-    ASSERT_NE(movedAsset, nullptr);
-    EXPECT_TRUE(movedAsset->uuid == original);
+    ASSERT_TRUE(movedAsset);
+    EXPECT_TRUE(movedAsset.source->uuid == original);
 
     // Duplicate assigns a new identity.
     auto dupAsset = db->DuplicateAsset(FilePath{FilePath(moved)}, FilePath{FilePath(dup)});
-    ASSERT_NE(dupAsset, nullptr);
-    EXPECT_FALSE(dupAsset->uuid == original);
+    ASSERT_EQ(dupAsset.state, AssetCommitState::Committed);
+    ASSERT_NE(dupAsset.source, nullptr);
+    EXPECT_FALSE(dupAsset.source->uuid == original);
 
     // Remove drops identity.
     ASSERT_TRUE(db->RemoveAsset(original));
@@ -938,7 +940,7 @@ TEST_F(AssetManagerTest, ScanRebuildTest)
     db->Reset();
 
     // Rebuild the dev cache by scanning the writable mount for builder-known extensions.
-    EXPECT_FALSE(db->RebuildCacheFromScan().has_value());
+    EXPECT_TRUE(db->RebuildCacheFromScan().Succeeded());
 
     EXPECT_NE(db->FindAsset("framework/data/test_asset.t1"), nullptr);
     EXPECT_NE(db->FindAsset("framework/data/test_asset.t2"), nullptr);
@@ -955,11 +957,12 @@ TEST_F(AssetManagerTest, ImportTest)
 
     // Import assigns identity (manifest entry) and (cook=true) cooks the current platform.
     auto asset = db->ImportAsset(sourceFile, dest, true);
-    ASSERT_NE(asset, nullptr);
+    ASSERT_EQ(asset.state, AssetCommitState::Committed);
+    ASSERT_NE(asset.source, nullptr);
     EXPECT_NE(db->FindAsset("framework/data/imported.t1"), nullptr);
 
     AssetExecutor::Get()->WaitForAll();
-    auto loaded = AssetManager::Get()->LoadAsset<T1Data>(asset->uuid);
+    auto loaded = AssetManager::Get()->LoadAsset<T1Data>(asset.source->uuid);
     ASSERT_NE(loaded, nullptr);
     loaded->BlockUntilLoaded();
     EXPECT_TRUE(loaded->IsLoaded());
@@ -1371,7 +1374,7 @@ TEST_F(AssetScanTest, SameRelativePathKeepsBothMountIdentitiesAndOwnedReads)
     std::ofstream(engine / "scene.world") << "engine";
     std::ofstream(engine / "assets.jsonl") << "{\"file\":\"scene.world\",\"id\":\"" << engineId.ToString()
                                            << "\",\"cook\":{\"targets\":[\"engine\"]}}\n";
-    ASSERT_FALSE(database.RebuildCacheFromScan());
+    ASSERT_TRUE(database.RebuildCacheFromScan().Succeeded());
     const auto projectSource = database.FindAsset("workspace", FilePath("scene.world"));
     const auto engineSource  = database.FindAsset("engine", FilePath("scene.world"));
     ASSERT_NE(projectSource, nullptr);
@@ -1392,7 +1395,7 @@ TEST_F(AssetScanTest, SameRelativePathKeepsBothMountIdentitiesAndOwnedReads)
     const auto projectId = projectSource->uuid;
     database.Save();
     database.Reset();
-    ASSERT_FALSE(database.Load());
+    ASSERT_TRUE(database.Load().Succeeded());
     EXPECT_EQ(database.FindAsset("engine", FilePath("scene.world"))->uuid, engineId);
     EXPECT_EQ(database.FindAsset("workspace", FilePath("scene.world"))->uuid, projectId);
     EXPECT_EQ(database.GetSources().size(), 2U);
@@ -1407,7 +1410,7 @@ TEST_F(AssetScanTest, DeletedSourceDoesNotReturnFromStaleDevelopmentCache)
     ASSERT_TRUE(database.DeleteAsset(id));
     EXPECT_FALSE(database.GetWorkSpaceFs()->FileExist("scene.world"));
     database.Reset();
-    ASSERT_FALSE(database.Load());
+    ASSERT_TRUE(database.Load().Succeeded());
     EXPECT_FALSE(database.FindAsset(id));
     EXPECT_FALSE(database.FindAsset(FilePath("scene.world")));
 }
@@ -1419,7 +1422,7 @@ TEST_F(AssetScanTest, LegacyCacheWithoutMountUsesCommittedOwnerBeforeOverlayOrde
     std::ofstream(engine / "assets.jsonl") << "{\"file\":\"scene.world\",\"id\":\"" << engineId.ToString() << "\"}\n";
     std::ofstream(workspace / "assets.db") << "{\"assets\":[{\"uuid\":\"" << engineId.ToString()
                                            << "\",\"markedName\":\"legacy\",\"ext\":\".world\",\"path\":\"scene.world\",\"dependencies\":[]}]}";
-    ASSERT_FALSE(database.Load());
+    ASSERT_TRUE(database.Load().Succeeded());
     const auto engineSource  = database.FindAsset("engine", FilePath("scene.world"));
     const auto projectSource = database.FindAsset("workspace", FilePath("scene.world"));
     ASSERT_NE(engineSource, nullptr);
@@ -1428,4 +1431,227 @@ TEST_F(AssetScanTest, LegacyCacheWithoutMountUsesCommittedOwnerBeforeOverlayOrde
     EXPECT_EQ(engineSource->name, "legacy");
     EXPECT_NE(projectSource->uuid, engineId);
     EXPECT_EQ(database.FindAsset(FilePath("scene.world")).Get(), projectSource.Get());
+}
+
+TEST_F(AssetScanTest, DamagedDirectoryRetainsOnlyValidIdentitiesAndNeverSeeds)
+{
+    const auto id = Uuid::Create();
+    std::ofstream(workspace / "missing.world") << "{}";
+    const std::string bytes = "{\"file\":\"scene.world\",\"id\":\"" + id.ToString() + "\"}\ninvalid\n";
+    std::ofstream(workspace / "assets.jsonl") << bytes;
+    const auto report = database.Load();
+    EXPECT_TRUE(report.Succeeded());
+    ASSERT_EQ(report.blockedDirs.size(), 1U);
+    ASSERT_EQ(report.warnings.size(), 1U);
+    EXPECT_EQ(report.warnings.front().line, 2U);
+    const auto scene = database.FindAsset("scene.world");
+    ASSERT_NE(scene, nullptr);
+    EXPECT_EQ(scene->uuid, id);
+    EXPECT_EQ(database.FindAsset("missing.world"), nullptr);
+    const auto migration = database.MigrateLegacyIdentity();
+    EXPECT_FALSE(migration.Complete());
+    std::ifstream input(workspace / "assets.jsonl");
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(input), {}), bytes);
+}
+
+TEST_F(AssetScanTest, DuplicateIdentityAcrossDirectoriesIsNotPublishedOrRewritten)
+{
+    const auto id = Uuid::Create();
+    std::filesystem::create_directory(workspace / "other");
+    std::ofstream(workspace / "other" / "scene.world") << "{}";
+    AssetIndexFile manifest("file");
+    manifest.Set({"scene.world", id, {}});
+    ASSERT_TRUE(AssetIndexFile::Save(database.GetWorkSpaceFs(), "assets.jsonl", manifest));
+    ASSERT_TRUE(AssetIndexFile::Save(database.GetWorkSpaceFs(), "other/assets.jsonl", manifest));
+    const auto report = database.RebuildCacheFromScan();
+    EXPECT_TRUE(report.Succeeded());
+    EXPECT_EQ(report.blockedDirs.size(), 2U);
+    EXPECT_EQ(database.FindAsset(id), nullptr);
+}
+
+TEST_F(AssetScanTest, ImportRejectsOccupiedAndEscapingPathsWithoutAppending)
+{
+    const FilePath source(root / "external.world");
+    std::ofstream(root / "external.world") << "new bytes";
+    const auto occupied = database.ImportAsset(source, "scene.world", false);
+    EXPECT_EQ(occupied.state, AssetCommitState::NotCommitted);
+    EXPECT_EQ(occupied.status.error, FileOperationError::AlreadyExists);
+    std::ifstream input(workspace / "scene.world");
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(input), {}), "{}");
+    for (const auto *path : {"../escaped.world", "./noncanonical.world", "a/../../escaped.world"}) {
+        const auto result = database.ImportAsset(source, path, false);
+        EXPECT_EQ(result.state, AssetCommitState::NotCommitted);
+        EXPECT_EQ(result.status.error, FileOperationError::InvalidPath);
+    }
+    const auto created = database.ImportAsset(source, "imported.world", false);
+    ASSERT_EQ(created.state, AssetCommitState::Committed);
+    ASSERT_NE(created.source, nullptr);
+    EXPECT_EQ(created.source->mount, "workspace");
+}
+
+TEST_F(AssetScanTest, ScanReadsAndWritesPerDirectoryRatherThanPerAsset)
+{
+    class CountingFileSystem final : public NativeFileSystem {
+    public:
+        explicit CountingFileSystem(const FilePath &path) : NativeFileSystem(path)
+        {
+        }
+        FilePtr OpenFile(const FilePath &path) override
+        {
+            if (path.FileName() == "assets.jsonl")
+                ++reads;
+            return NativeFileSystem::OpenFile(path);
+        }
+        FileOperationStatus AcquireFileLock(const FilePath &path, FileLockPtr &out) const override
+        {
+            ++locks;
+            return NativeFileSystem::AcquireFileLock(path, out);
+        }
+        FileOperationStatus ReplaceFileAtomic(const FilePath &from, const FilePath &to) const override
+        {
+            if (to.FileName() == "assets.jsonl")
+                ++saves;
+            return NativeFileSystem::ReplaceFileAtomic(from, to);
+        }
+        mutable size_t reads = 0, locks = 0, saves = 0;
+    };
+    for (const size_t directories : {size_t{1}, size_t{4}}) {
+        for (const size_t files : {size_t{10}, size_t{100}, size_t{1000}}) {
+            database.Reset();
+            const auto                     batch      = workspace / (std::to_string(directories) + "-" + std::to_string(files));
+            CounterPtr<CountingFileSystem> filesystem = new CountingFileSystem(FilePath(batch));
+            database.SetWorkSpaceFs(filesystem);
+            for (size_t directory = 0; directory < directories; ++directory) {
+                const auto      path = batch / std::to_string(directory);
+                std::error_code error;
+                std::filesystem::create_directories(path, error);
+                ASSERT_FALSE(error);
+                for (size_t file = 0; file < files; ++file)
+                    std::ofstream(path / (std::to_string(file) + ".world")) << "{}";
+            }
+            const auto begin = std::chrono::steady_clock::now();
+            EXPECT_TRUE(database.RebuildCacheFromScan().Complete());
+            const auto cold = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count();
+            EXPECT_LE(filesystem->reads, directories * 2);
+            EXPECT_EQ(filesystem->locks, directories);
+            EXPECT_EQ(filesystem->saves, directories);
+            filesystem->reads = filesystem->locks = filesystem->saves = 0;
+            const auto warmBegin                                      = std::chrono::steady_clock::now();
+            EXPECT_TRUE(database.RebuildCacheFromScan().Complete());
+            const auto warm = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - warmBegin).count();
+            EXPECT_EQ(filesystem->reads, directories);
+            EXPECT_EQ(filesystem->locks, 0U);
+            EXPECT_EQ(filesystem->saves, 0U);
+            std::cout << "SCAN_SCALE dirs=" << directories << " files_per_dir=" << files << " cold_us=" << cold << " warm_us=" << warm << '\n';
+        }
+    }
+}
+
+TEST_F(AssetScanTest, FailedCreationCommitReportsCleanupAndLeavesNoRegistration)
+{
+    class FailingFileSystem final : public NativeFileSystem {
+    public:
+        explicit FailingFileSystem(const FilePath &path) : NativeFileSystem(path)
+        {
+        }
+        FileOperationStatus ReplaceFileAtomic(const FilePath &, const FilePath &) const override
+        {
+            return {FileOperationError::IOError, "injected manifest commit failure"};
+        }
+        FileOperationStatus RemoveFile(const FilePath &path) const override
+        {
+            return failCleanup ? FileOperationStatus{FileOperationError::IOError, "injected cleanup failure"} : NativeFileSystem::RemoveFile(path);
+        }
+        bool failCleanup = false;
+    };
+    CounterPtr<FailingFileSystem> filesystem = new FailingFileSystem(FilePath(workspace));
+    database.SetWorkSpaceFs(filesystem);
+    std::ofstream(root / "source.world") << "source";
+    const auto first = database.ImportAsset(FilePath(root / "source.world"), "copy.world", false);
+    EXPECT_EQ(first.state, AssetCommitState::NotCommitted);
+    EXPECT_FALSE(first.status);
+    EXPECT_TRUE(first.recovery.empty());
+    EXPECT_FALSE(filesystem->FileExist("copy.world"));
+    EXPECT_EQ(database.FindAsset("copy.world"), nullptr);
+    filesystem->failCleanup = true;
+    const auto second       = database.ImportAsset(FilePath(root / "source.world"), "copy.world", false);
+    EXPECT_EQ(second.state, AssetCommitState::RollbackFailed);
+    ASSERT_EQ(second.recovery.size(), 2U);
+    EXPECT_EQ(second.recovery.back().path, FilePath(workspace / "copy.world"));
+    EXPECT_EQ(database.FindAsset("copy.world"), nullptr);
+}
+
+TEST_F(AssetScanTest, EngineOnlyLoadDoesNotRequireWorkspaceOrWriteManifest)
+{
+    database.SetWorkSpaceFs({});
+    std::ofstream(engine / "engine.world") << "{}";
+    EXPECT_TRUE(database.Load().Complete());
+    EXPECT_NE(database.FindAsset("engine", "engine.world"), nullptr);
+    EXPECT_FALSE(std::filesystem::exists(engine / "assets.jsonl"));
+    EXPECT_FALSE(std::filesystem::exists(engine / "assets.jsonl.lock"));
+}
+
+TEST_F(AssetScanTest, LockedRereadPreservesWorkerGeneratedCommitAfterPlanningRead)
+{
+    class InterleavedFileSystem final : public NativeFileSystem {
+    public:
+        explicit InterleavedFileSystem(const FilePath &path) : NativeFileSystem(path)
+        {
+        }
+        FileOperationStatus AcquireFileLock(const FilePath &path, FileLockPtr &out) const override
+        {
+            if (beforeLock) {
+                const auto callback = std::move(beforeLock);
+                callback();
+            }
+            return NativeFileSystem::AcquireFileLock(path, out);
+        }
+        mutable std::function<void()> beforeLock;
+    };
+    const auto owner = database.RegisterAsset("scene.world", false);
+    ASSERT_NE(owner, nullptr);
+    AssetDataBase worker;
+    worker.SetWorkSpaceFs(new NativeFileSystem(FilePath(workspace)));
+    ASSERT_NE(worker.RegisterAsset("scene.world", false), nullptr);
+    CounterPtr<InterleavedFileSystem> filesystem = new InterleavedFileSystem(FilePath(workspace));
+    database.SetWorkSpaceFs(filesystem);
+    std::ofstream(workspace / "new.world") << "{}";
+    GeneratedAssetManifest children;
+    filesystem->beforeLock = [&] {
+        const std::array<GeneratedAssetDescriptor, 1> requested{{{"child", "World"}}};
+        ASSERT_TRUE(worker.UpdateGeneratedProducts(owner->uuid, requested, {}, children));
+    };
+    const auto report = database.RebuildCacheFromScan();
+    EXPECT_TRUE(report.Complete());
+    ASSERT_EQ(children.records.size(), 1U);
+    const auto persisted = AssetIndexFile::Load(filesystem, "assets.jsonl", "file", "cook");
+    ASSERT_NE(persisted.Find("scene.world"), nullptr);
+    EXPECT_FALSE(persisted.Find("scene.world")->generated.empty());
+    EXPECT_TRUE(database.Exists(children.records.front().uuid));
+    EXPECT_NE(database.FindAsset("new.world"), nullptr);
+}
+
+TEST_F(AssetScanTest, StaleCacheCannotHideManifestIdentityInAnotherDirectory)
+{
+    std::filesystem::create_directory(workspace / "z");
+    std::filesystem::create_directory(workspace / "a");
+    std::ofstream(workspace / "z" / "old.world") << "{}";
+    const auto old = database.RegisterAsset("z/old.world", false);
+    ASSERT_NE(old, nullptr);
+    const auto id = old->uuid;
+    database.Save();
+    database.Reset();
+    std::filesystem::remove(workspace / "z" / "assets.jsonl");
+    std::ofstream(workspace / "a" / "current.world") << "{}";
+    AssetIndexFile manifest("file");
+    manifest.Set({"current.world", id, {}});
+    ASSERT_TRUE(AssetIndexFile::Save(database.GetWorkSpaceFs(), "a/assets.jsonl", manifest));
+    const auto report = database.Load();
+    EXPECT_TRUE(report.Succeeded());
+    EXPECT_FALSE(report.blockedDirs.empty());
+    const auto current = database.FindAsset(id);
+    ASSERT_NE(current, nullptr);
+    EXPECT_EQ(current->path, FilePath("a/current.world"));
+    EXPECT_EQ(database.FindAsset("z/old.world"), nullptr);
+    EXPECT_FALSE(std::filesystem::exists(workspace / "z" / "assets.jsonl"));
 }

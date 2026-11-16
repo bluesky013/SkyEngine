@@ -201,6 +201,15 @@ namespace sky::editor {
         return transitioning || (form != nullptr && form->Form().IsEditing());
     }
 
+    void PreferencesDialog::RequestTarget(SettingsTarget target)
+    {
+        ++generation;
+        onApplied     = {};
+        pendingTarget = std::move(target);
+        pending       = Pending::Target;
+        DrainPending();
+    }
+
     void PreferencesDialog::SetModel(PreferencePageRegistry *inRegistry)
     {
         const auto activeSession = session; // survive notification-triggered owner destruction
@@ -245,7 +254,25 @@ namespace sky::editor {
         }
         const auto action = pending;
         pending           = Pending::None;
-        if (action == Pending::Open) {
+        if (action == Pending::Target) {
+            auto                      target    = std::move(pendingTarget);
+            const std::weak_ptr<void> alive     = lifetime;
+            const auto                requested = generation;
+            CloseState();
+            if (alive.expired())
+                return;
+            // CloseState increments once; callbacks may enqueue a newer whole request.
+            if (generation != requested + 1 || pending != Pending::None) {
+                DrainPending();
+                return;
+            }
+            registry    = target.registry;
+            persistence = std::move(target.persistence);
+            title       = std::move(target.title);
+            onApplied   = std::move(target.onApplied);
+            if (registry)
+                Open();
+        } else if (action == Pending::Open) {
             Open();
         } else if (action == Pending::Close) {
             Close();

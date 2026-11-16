@@ -364,8 +364,8 @@ namespace sky::aurora {
         if (source.precompressed) {
             imageData = source.asset;
             CommitImageBulk(*asset);
-            if (const auto saved = manager->SaveAsset(asset, bundleKey); !saved) {
-                result.error = saved.message;
+            if (const auto saved = manager->SaveAsset(asset, bundleKey, request.publication); !saved) {
+                result.error = saved.Describe();
                 return;
             }
             result.retCode = AssetBuildRetCode::SUCCESS;
@@ -383,8 +383,8 @@ namespace sky::aurora {
         CompressAndEmit(image, config, assetType, imageData);
 
         CommitImageBulk(*asset);
-        if (const auto saved = manager->SaveAsset(asset, bundleKey); !saved) {
-            result.error = saved.message;
+        if (const auto saved = manager->SaveAsset(asset, bundleKey, request.publication); !saved) {
+            result.error = saved.Describe();
             return;
         }
         result.retCode = AssetBuildRetCode::SUCCESS;
