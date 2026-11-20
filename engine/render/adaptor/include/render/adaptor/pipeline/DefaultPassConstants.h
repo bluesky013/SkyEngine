@@ -20,4 +20,9 @@ namespace sky {
 
     static constexpr std::string_view SWAP_CHAIN = "SwapChain";
 
+    // Tile-based shadow map resources
+    static constexpr std::string_view TILE_SHADOW_ATLAS    = "ShadowAtlas";
+    static constexpr std::string_view TILE_SHADOW_INFO     = "TileShadowInfo";
+    static constexpr std::string_view TILE_LIGHT_BITMASK   = "TileLightBitmask";
+
 } // namespace sky

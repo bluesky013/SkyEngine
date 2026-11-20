@@ -55,6 +55,15 @@ namespace sky {
             rhi::DescriptorType::SAMPLED_IMAGE, 1, 10, stageFlags, "HizBuffer");
         desc.bindings.emplace_back(
             rhi::DescriptorType::SAMPLER, 1, 11, stageFlags, "HizBufferSampler");
+        // Tile-based shadow map bindings
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 12, stageFlags, "TileShadowInfo");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::UNIFORM_BUFFER, 1, 13, stageFlags, "TileLightBitmask");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::SAMPLED_IMAGE, 1, 14, stageFlags, "ShadowAtlas");
+        desc.bindings.emplace_back(
+            rhi::DescriptorType::SAMPLER, 1, 15, stageFlags, "ShadowAtlasSampler");
 
         defaultRasterLayout = new ResourceGroupLayout();
         defaultRasterLayout->SetRHILayout(RHI::Get()->GetDevice()->CreateDescriptorSetLayout(desc));
@@ -70,6 +79,10 @@ namespace sky {
         defaultRasterLayout->AddNameHandler(Name("PrefilteredMapSampler"), {9});
         defaultRasterLayout->AddNameHandler(Name("HizBuffer"), {10});
         defaultRasterLayout->AddNameHandler(Name("HizBufferSampler"), {11});
+        defaultRasterLayout->AddNameHandler(Name("TileShadowInfo"),   {12, sizeof(TileShadowPassInfo)});
+        defaultRasterLayout->AddNameHandler(Name("TileLightBitmask"), {13, TILE_SHADOW_MAX_TILES * sizeof(uint32_t)});
+        defaultRasterLayout->AddNameHandler(Name("ShadowAtlas"),      {14});
+        defaultRasterLayout->AddNameHandler(Name("ShadowAtlasSampler"), {15});
 
         defaultGlobal = new UniformBuffer();
         defaultGlobal->Init(sizeof(ShaderPassInfo));
@@ -82,6 +95,9 @@ namespace sky {
 
         shadowMap = std::make_unique<ShadowMapPass>(4096, 4096);
         shadowMap->SetLayout(defaultRasterLayout);
+
+        tileShadow = std::make_unique<TileShadowPass>();
+        tileShadow->SetLayout(defaultRasterLayout);
 
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
         postProcess = std::make_unique<PostProcessingPass>(postTech);
@@ -155,6 +171,18 @@ namespace sky {
         rg.ImportUBO(fwdPassInfoName, defaultGlobal);
 
         rg.ImportSampler(Name("PointSampler"), pointSampler);
+
+        // Shadow atlas sampler (comparison sampler for PCF)
+        if (!shadowAtlasSampler) {
+            rhi::Sampler::Descriptor shadowSamplerDesc = {};
+            shadowSamplerDesc.minFilter = rhi::Filter::LINEAR;
+            shadowSamplerDesc.magFilter = rhi::Filter::LINEAR;
+            shadowSamplerDesc.addressModeU = rhi::WrapMode::CLAMP_TO_BORDER;
+            shadowSamplerDesc.addressModeV = rhi::WrapMode::CLAMP_TO_BORDER;
+            shadowSamplerDesc.addressModeW = rhi::WrapMode::CLAMP_TO_BORDER;
+            shadowAtlasSampler = RHI::Get()->GetDevice()->CreateSampler(shadowSamplerDesc);
+        }
+        rg.ImportSampler(Name("ShadowAtlasSampler"), shadowAtlasSampler);
     }
 
     void DefaultForwardPipeline::Collect(rdg::RenderGraph &rdg)
@@ -162,13 +190,21 @@ namespace sky {
         const auto renderWidth  = output->GetWidth();
         const auto renderHeight = output->GetHeight();
 
+        // Tile-based shadow map: build shadow matrices + import atlas resources first
+        // so that SetupGlobal can read the up-to-date LightMatrix.
+        tileShadow->Setup(rdg, *scene, renderWidth, renderHeight);
+
         SetupGlobal(rdg, renderWidth, renderHeight);
         SetupScreenExternalImages(rdg, renderWidth, renderHeight);
 
+        // Legacy single-light shadow map is disabled in favour of tile shadows
         shadowMap->SetEnable(false);
 
         AddPass(brdfLut.get());
         AddPass(shadowMap.get());
+
+        // Add active tile shadow slot passes (render shadow maps into atlas layers)
+        tileShadow->AddPasses(*this);
 
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());

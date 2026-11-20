@@ -110,12 +110,21 @@ namespace sky {
         SpotLight() = default;
         ~SpotLight() override = default;
 
+        void SetPosition(const Vector3 &pos) { position = pos; }
+        void SetDirection(const Vector3 &dir) { direction = dir; }
+        void SetAngle(float a) { angle = a; }
+        void SetRange(float r) { range = r; }
+
+        float GetRange() const { return range; }
+
         void Collect(LightInfo &info) override;
+        void BuildShadowMatrix(SceneView &view) const;
     private:
         Vector3 position;
         Vector3 direction;
 
         float angle = 1.f;
+        float range = 10.f;
     };
 
     class DirectLight : public Light {

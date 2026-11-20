@@ -96,6 +96,24 @@ namespace sky {
             rdg::ComputeView{Name("PrefilteredMap"), rdg::ComputeType::SRV, stageFlags}
         });
 
+        // Tile-based shadow map resources
+        computeResources.emplace_back(ComputeResource{
+            Name("TileShadowInfo"),
+            rdg::ComputeView{Name("TileShadowInfo"), rdg::ComputeType::CBV, stageFlags}
+        });
+
+        computeResources.emplace_back(ComputeResource{
+            Name("TileLightBitmask"),
+            rdg::ComputeView{Name("TileLightBitmask"), rdg::ComputeType::CBV, stageFlags}
+        });
+
+        computeResources.emplace_back(ComputeResource{
+            Name("ShadowAtlas"),
+            rdg::ComputeView{Name("ShadowAtlas"), rdg::ComputeType::SRV, stageFlags}
+        });
+
+        samplers.emplace_back(SamplerResource{Name("ShadowAtlasSampler"), Name("ShadowAtlasSampler")});
+
 //        computeResources.emplace_back(ComputeResource{
 //            Name("HizBuffer"),
 //            rdg::ComputeView{Name("HizBuffer"), rdg::ComputeType::SRV, stageFlags}

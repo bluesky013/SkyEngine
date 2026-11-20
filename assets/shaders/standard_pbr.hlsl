@@ -11,6 +11,7 @@
 #pragma option({"key": "ENABLE_IBL",          "default": 0, "type": "Batch"})
 
 #pragma option({"key": "ENABLE_SHADOW",       "default": 0, "type": "Pass"})
+#pragma option({"key": "ENABLE_TILE_SHADOW",  "default": 0, "type": "Pass"})
 
 #include "vertex/standard.hlslh"
 
@@ -378,6 +379,8 @@ float4 FSMain(VSOutput input) : SV_TARGET
     float4 fragPosLightSpace = mul(biasMat, mul(LightMatrix, float4(input.WorldPos, 1.0)));
     float4 shadowCoord = fragPosLightSpace / fragPosLightSpace.w;
     float shadow = FilterPCF(shadowCoord);
+#elif ENABLE_TILE_SHADOW
+    float shadow = ComputeTileShadow(input.Pos.xy, input.WorldPos);
 #else
 	float shadow = 1.0;
 #endif
