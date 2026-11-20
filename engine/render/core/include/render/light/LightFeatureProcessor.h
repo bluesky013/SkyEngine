@@ -7,6 +7,7 @@
 #include <render/FeatureProcessor.h>
 #include <render/light/LightBase.h>
 #include <render/resource/Buffer.h>
+#include <render/RenderBuiltinLayout.h>
 #include <memory>
 
 namespace sky {
@@ -44,6 +45,14 @@ namespace sky {
 
         void AddLight(Light *light);
         void RemoveLight(Light *light);
+
+        uint32_t GetPointLightCount() const { return pointLightCount; }
+        uint32_t GetSpotLightCount() const { return spotLightCount; }
+        const ShaderPointLightBuffer &GetPointLightBuffer() const { return pointLightBuffer; }
+        const ShaderSpotLightBuffer &GetSpotLightBuffer() const { return spotLightBuffer; }
+
+        void GatherPunctualLightData();
+
     private:
         void GatherLightInfo();
 
@@ -54,6 +63,11 @@ namespace sky {
 
         RDBufferPtr lightData;
         RDBufferPtr stagingBuffer;
+
+        uint32_t pointLightCount = 0;
+        uint32_t spotLightCount  = 0;
+        ShaderPointLightBuffer pointLightBuffer = {};
+        ShaderSpotLightBuffer spotLightBuffer = {};
 
         TimeOfDay tod;
     };

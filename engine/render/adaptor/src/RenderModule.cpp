@@ -45,6 +45,8 @@ namespace sky {
     {
         auto *context = SerializationContext::Get();
         MainDirectLightComponent::Reflect(context);
+        PointLightComponent::Reflect(context);
+        SpotLightComponent::Reflect(context);
         StaticMeshComponent::Reflect(context);
         CameraComponent::Reflect(context);
         SkeletalMeshComponent::Reflect(context);
@@ -58,6 +60,8 @@ namespace sky {
         {
             static std::string GROUP = "Render";
             ComponentFactory::Get()->RegisterComponent<MainDirectLightComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<PointLightComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<SpotLightComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<StaticMeshComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<SkeletalMeshComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);

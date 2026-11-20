@@ -11,7 +11,8 @@ namespace sky {
     void PointLight::Collect(LightInfo &info)
     {
         info.color = color;
-
+        info.position  = ToVec4(position);
+        info.rsv = Vector4(range, 0.f, 0.f, 0.f);
     }
 
     void SpotLight::Collect(LightInfo &info)
@@ -19,6 +20,7 @@ namespace sky {
         info.color = color;
         info.position  = ToVec4(position);
         info.direction = ToVec4(direction);
+        info.rsv = Vector4(range, innerAngle, outerAngle, 0.f);
     }
 
     void DirectLight::Collect(LightInfo &info)

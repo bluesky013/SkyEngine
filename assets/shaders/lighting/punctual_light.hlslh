@@ -1,0 +1,99 @@
+// Physically-based punctual light evaluation
+// Reference: "Moving Frostbite to PBR" (Lagarde & de Rousiers, SIGGRAPH 2014)
+//            "Real Shading in Unreal Engine 4" (Karis, SIGGRAPH 2013)
+
+// Smooth distance attenuation with inverse-square falloff and range windowing.
+// Uses the UE4/Frostbite window function to ensure light influence drops to
+// zero exactly at the specified range, avoiding abrupt pop-in artifacts.
+//   d     - distance from surface to light
+//   range - maximum influence radius
+float DistanceAttenuation(float d, float range)
+{
+    float d2 = d * d;
+    float ratio2 = d2 / (range * range);
+    float factor = saturate(1.0 - ratio2 * ratio2); // window function
+    return (factor * factor) / max(d2, 1e-4);        // inverse-square + window
+}
+
+// Angular attenuation for spot lights.
+// Produces a smooth falloff between the inner and outer cone angles.
+//   cosAngle - dot(-L, spotDirection)
+//   cosInner - cosine of the inner (full-intensity) cone half-angle
+//   cosOuter - cosine of the outer (zero-intensity) cone half-angle
+float SpotAttenuation(float cosAngle, float cosInner, float cosOuter)
+{
+    float t = saturate((cosAngle - cosOuter) / max(cosInner - cosOuter, 1e-4));
+    return t * t;
+}
+
+// Evaluate a point light contribution using the Cook-Torrance BRDF.
+float3 EvaluatePointLight(PointLightData light, float3 V, float3 N, float3 worldPos, StandardPBR param)
+{
+    float3 lightPos = light.PositionRange.xyz;
+    float  range    = light.PositionRange.w;
+
+    float3 toLight = lightPos - worldPos;
+    float  dist    = length(toLight);
+    float3 L       = toLight / max(dist, 1e-6);
+
+    float attenuation = DistanceAttenuation(dist, range);
+
+    float3 H = normalize(V + L);
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), param.Albedo, param.Metallic);
+
+    float3 F = F_Schlick(VdotH, F0);
+    float  D = D_GGX(NdotH, param.Roughness);
+    float  G = G_SchlickSmithGGX(NdotL, NdotV, param.Roughness);
+
+    float specular = D * G / (4.0 * NdotV * NdotL + 0.001);
+    float3 specularColor = F * specular;
+
+    float3 kD = (1.0 - F) * (1.0 - param.Metallic);
+    float3 diffuse = kD / PI * param.Albedo;
+
+    float3 radiance = light.ColorIntensity.rgb * light.ColorIntensity.w * attenuation;
+    return (diffuse + specularColor) * radiance * NdotL;
+}
+
+// Evaluate a spot light contribution using the Cook-Torrance BRDF.
+float3 EvaluateSpotLight(SpotLightData light, float3 V, float3 N, float3 worldPos, StandardPBR param)
+{
+    float3 lightPos = light.PositionRange.xyz;
+    float  range    = light.PositionRange.w;
+    float3 spotDir  = normalize(light.DirectionInner.xyz);
+    float  cosInner = light.DirectionInner.w;
+    float  cosOuter = light.OuterAnglePad.x;
+
+    float3 toLight = lightPos - worldPos;
+    float  dist    = length(toLight);
+    float3 L       = toLight / max(dist, 1e-6);
+
+    float attenuation = DistanceAttenuation(dist, range);
+    float spotFactor  = SpotAttenuation(dot(-L, spotDir), cosInner, cosOuter);
+
+    float3 H = normalize(V + L);
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), param.Albedo, param.Metallic);
+
+    float3 F = F_Schlick(VdotH, F0);
+    float  D = D_GGX(NdotH, param.Roughness);
+    float  G = G_SchlickSmithGGX(NdotL, NdotV, param.Roughness);
+
+    float specular = D * G / (4.0 * NdotV * NdotL + 0.001);
+    float3 specularColor = F * specular;
+
+    float3 kD = (1.0 - F) * (1.0 - param.Metallic);
+    float3 diffuse = kD / PI * param.Albedo;
+
+    float3 radiance = light.ColorIntensity.rgb * light.ColorIntensity.w * attenuation * spotFactor;
+    return (diffuse + specularColor) * radiance * NdotL;
+}
