@@ -10,6 +10,7 @@
 #include <render/adaptor/pipeline/DefaultForwardPipeline.h>
 #include <render/adaptor/Util.h>
 #include <render/light/LightFeatureProcessor.h>
+#include <render/atmosphere/HeightFogFeature.h>
 #include <render/rdg/RenderGraph.h>
 #include <rhi/Util.h>
 
@@ -28,6 +29,7 @@ namespace sky {
         auto brdfTech = LoadGfxTech("techniques/brdf_lut.tech");
         auto depthResolveTech = LoadGfxTech("techniques/depth_resolve.tech");
         auto depthDownSampleTech = LoadGfxTech("techniques/depth_downsample.tech");
+        auto heightFogTech = LoadGfxTech("techniques/height_fog.tech");
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
@@ -86,6 +88,7 @@ namespace sky {
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
         postProcess = std::make_unique<PostProcessingPass>(postTech);
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
+        heightFog   = std::make_unique<HeightFogPass>(heightFogTech);
 
         hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
 
@@ -173,13 +176,19 @@ namespace sky {
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());
 
-//        AddPass(empty.get());
+        // If height fog feature processor is active, add the fog pass and
+        // redirect the post-processing pass to read from the fog output.
+        auto *fogFP = GetFeatureProcessor<HeightFogFeatureProcessor>(scene);
+        if (fogFP != nullptr) {
+            heightFog->Resize(renderWidth, renderHeight);
+            AddPass(heightFog.get());
+            postProcess->SetColorInput(Name(HEIGHT_FOG_OUTPUT.data()));
+        } else {
+            postProcess->SetColorInput(Name(FWD_CL.data()));
+        }
 
         postProcess->Resize(renderWidth, renderHeight);
         AddPass(postProcess.get());
-
-//        hiz->BuildHizPass(rdg, hizDepth, renderWidth, renderHeight);
-//        hiz->AddPass(*this);
 
         AddPass(present.get());
     }

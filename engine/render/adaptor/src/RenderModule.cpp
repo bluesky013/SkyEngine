@@ -22,6 +22,7 @@
 #include <render/adaptor/components/SkeletalMeshComponent.h>
 #include <render/adaptor/components/SkyBoxComponent.h>
 #include <render/adaptor/components/StaticMeshComponent.h>
+#include <render/adaptor/components/HeightFogComponent.h>
 
 #include <render/adaptor/animation/SkeletonDisplayComponent.h>
 #include <render/adaptor/animation/AnimationPreviewComponent.h>
@@ -31,6 +32,7 @@
 #include <render/env/EnvFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
+#include <render/atmosphere/HeightFogFeature.h>
 #include <imgui/ImGuiFeature.h>
 
 #include <render/RHI.h>
@@ -50,6 +52,7 @@ namespace sky {
         SkeletalMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
         PrefabComponent::Reflect(context);
+        HeightFogComponent::Reflect(context);
 
         SkeletonDisplayComponent::Reflect(context);
         AnimationPreviewComponent::Reflect(context);
@@ -63,6 +66,7 @@ namespace sky {
             ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<HeightFogComponent>(GROUP);
         }
 
         {
@@ -146,6 +150,7 @@ namespace sky {
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
         EnvFeature::Get()->Init();
+        HeightFogFeature::Get()->Init();
 
         auto *am = AssetManager::Get();
         {
@@ -175,6 +180,7 @@ namespace sky {
         ImGuiFeature::Destroy();
         TextFeature::Destroy();
         EnvFeature::Destroy();
+        HeightFogFeature::Destroy();
 
         Renderer::Destroy();
         RHI::Destroy();
