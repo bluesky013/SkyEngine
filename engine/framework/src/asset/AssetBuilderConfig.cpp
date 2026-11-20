@@ -32,7 +32,24 @@ namespace sky {
 
     void AssetBuilderConfig::SaveJson(JsonOutputArchive &archive)
     {
+        archive.Key("bundles");
+        archive.StartArray();
+        for (const auto &bundle : bundles) {
+            archive.SaveValue(bundle);
+        }
+        archive.EndArray();
 
+        archive.Key("presets");
+        archive.StartObject();
+        for (const auto &[key, values] : presets) {
+            archive.Key(key.c_str());
+            archive.StartArray();
+            for (const auto &val : values) {
+                archive.SaveValue(val);
+            }
+            archive.EndArray();
+        }
+        archive.EndObject();
     }
 
 } // namespace sky

@@ -28,6 +28,7 @@ namespace sky {
 
         AssetPtr LoadAsset(const Uuid &uuid);
         void SaveAsset(const AssetPtr &asset, const ProductBundleKey &bundleKey);
+        void RemoveAsset(const Uuid &uuid);
 
         AssetPtr LoadAssetFromPath(const std::string &path);
 
@@ -74,7 +75,7 @@ namespace sky {
         std::vector<std::unique_ptr<AssetProductBundle>> bundles;
 
         mutable std::recursive_mutex mutex;
-        std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;
+        mutable std::unordered_map<Uuid, std::weak_ptr<AssetBase>> assets;
     };
 
 } // namespace sky

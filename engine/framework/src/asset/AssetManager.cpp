@@ -32,6 +32,8 @@ namespace sky {
             if (auto res = iter->second.lock(); res) {
                 return res;
             }
+            // Lazily remove the stale weak_ptr entry
+            assets.erase(iter);
         }
         return {};
     }
@@ -84,9 +86,12 @@ namespace sky {
     {
         auto asset = FindAsset(uuid);
 
-        // check loaded
-        if (asset && asset->IsLoaded()) {
-            return asset;
+        // check loaded or in-flight: return the existing handle to avoid double-loading
+        if (asset) {
+            auto s = asset->GetStatus();
+            if (s == AssetBase::Status::LOADED || s == AssetBase::Status::LOADING) {
+                return asset;
+            }
         }
 
         auto file = OpenFile(uuid);
@@ -126,6 +131,10 @@ namespace sky {
                 }
 
                 if (!success) {
+                    auto failedAsset = FindAsset(uuid);
+                    if (failedAsset) {
+                        failedAsset->status.store(AssetBase::Status::FAILED);
+                    }
                     return;
                 }
                 SKY_PROFILE_NAME("LoadAsset")
@@ -151,7 +160,7 @@ namespace sky {
         }
 
         for (const auto &bundle : bundles) {
-            if (bundle->GetKey() != target) {
+            if (bundle->GetKey() == target) {
                 return bundle.get();
             }
         }
@@ -213,6 +222,15 @@ namespace sky {
     void AssetManager::RegisterAssetHandler(const std::string_view &type, AssetHandlerBase *handler)
     {
         assetHandlers[Name(type.data())].reset(handler);
+    }
+
+    void AssetManager::RemoveAsset(const Uuid &uuid)
+    {
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex);
+            assets.erase(uuid);
+        }
+        AsseEvent::BroadCast(uuid, &IAssetEvent::OnAssetReset);
     }
 
 } // namespace sky
