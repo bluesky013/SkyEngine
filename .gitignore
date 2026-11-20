@@ -16,3 +16,4 @@
 /test/assets/assets.db
 /test/products/
 /python/.idea
+*.log

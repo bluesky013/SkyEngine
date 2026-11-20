@@ -9,6 +9,7 @@
 		"techniques/debug.tech",
 		"techniques/skybox.tech",
 		"techniques/meshlet_debug.tech",
-		"techniques/brdf_lut.tech"
+		"techniques/brdf_lut.tech",
+		"techniques/tsaa.tech"
 	]
 }

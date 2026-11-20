@@ -53,6 +53,12 @@ namespace sky {
         dirty = true;
     }
 
+    void SceneView::SetJitter(float jitterX, float jitterY)
+    {
+        jitter = Vector2(jitterX, jitterY);
+        dirty = true;
+    }
+
     void SceneView::Update()
     {
         if (!dirty) {
@@ -67,7 +73,11 @@ namespace sky {
             Matrix4 p = Matrix4::Identity();
             p[1][1] = RHI::Get()->GetDevice()->GetConstants().flipY && flipY ? -1.f : 1.f;
 
-            viewInfo[i].viewProject = p * projects[i] * viewInfo[i].view;
+            Matrix4 proj = projects[i];
+            proj[2][0] += jitter.x;
+            proj[2][1] += jitter.y;
+
+            viewInfo[i].viewProject = p * proj * viewInfo[i].view;
             frustums[i] = CreateFrustumByViewProjectMatrix(viewInfo[i].viewProject);
 
             viewUbo->WriteT(i * sizeof(SceneViewInfo), viewInfo[i]);
