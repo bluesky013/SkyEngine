@@ -24,10 +24,11 @@ namespace sky {
 
     void DefaultForwardPipeline::InitPass()
     {
-        auto postTech = LoadGfxTech("techniques/post_processing.tech");
-        auto brdfTech = LoadGfxTech("techniques/brdf_lut.tech");
-        auto depthResolveTech = LoadGfxTech("techniques/depth_resolve.tech");
+        auto postTech  = LoadGfxTech("techniques/post_processing.tech");
+        auto brdfTech  = LoadGfxTech("techniques/brdf_lut.tech");
+        auto depthResolveTech   = LoadGfxTech("techniques/depth_resolve.tech");
         auto depthDownSampleTech = LoadGfxTech("techniques/depth_downsample.tech");
+        auto decalTech = LoadGfxTech("techniques/decal.tech");
 
         rhi::DescriptorSetLayout::Descriptor desc = {};
         auto stageFlags = rhi::ShaderStageFlagBit::VS | rhi::ShaderStageFlagBit::FS | rhi::ShaderStageFlagBit::TAS | rhi::ShaderStageFlagBit::MS;
@@ -86,6 +87,11 @@ namespace sky {
         brdfLut     = std::make_unique<BRDFLutPass>(brdfTech);
         postProcess = std::make_unique<PostProcessingPass>(postTech);
         present     = std::make_unique<PresentPass>(output->GetSwapChain());
+
+        decal = std::make_unique<DecalPass>(
+            decalTech,
+            Name(FWD_CL.data()),
+            Name(FWD_DS.data()));
 
         hiz = std::make_unique<HizGenerator>(depthResolveTech, depthDownSampleTech);
 
@@ -172,6 +178,9 @@ namespace sky {
 
         forward->Resize(renderWidth, renderHeight);
         AddPass(forward.get());
+
+        decal->Resize(renderWidth, renderHeight);
+        AddPass(decal.get());
 
 //        AddPass(empty.get());
 

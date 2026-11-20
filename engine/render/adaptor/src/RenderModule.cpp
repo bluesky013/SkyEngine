@@ -17,6 +17,7 @@
 #include <render/adaptor/Reflection.h>
 #include <render/adaptor/assets/TechniqueAsset.h>
 #include <render/adaptor/components/CameraComponent.h>
+#include <render/adaptor/components/DecalComponent.h>
 #include <render/adaptor/components/LightComponent.h>
 #include <render/adaptor/components/PrefabComponent.h>
 #include <render/adaptor/components/SkeletalMeshComponent.h>
@@ -31,6 +32,7 @@
 #include <render/env/EnvFeature.h>
 #include <render/mesh/MeshFeature.h>
 #include <render/text/TextFeature.h>
+#include <render/decal/DecalFeatureProcessor.h>
 #include <imgui/ImGuiFeature.h>
 
 #include <render/RHI.h>
@@ -50,6 +52,7 @@ namespace sky {
         SkeletalMeshComponent::Reflect(context);
         SkyBoxComponent::Reflect(context);
         PrefabComponent::Reflect(context);
+        DecalComponent::Reflect(context);
 
         SkeletonDisplayComponent::Reflect(context);
         AnimationPreviewComponent::Reflect(context);
@@ -63,6 +66,7 @@ namespace sky {
             ComponentFactory::Get()->RegisterComponent<CameraComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<SkyBoxComponent>(GROUP);
             ComponentFactory::Get()->RegisterComponent<PrefabComponent>(GROUP);
+            ComponentFactory::Get()->RegisterComponent<DecalComponent>(GROUP);
         }
 
         {
@@ -146,6 +150,8 @@ namespace sky {
         TextFeature::Get()->Init();
         LightFeature::Get()->Init();
         EnvFeature::Get()->Init();
+
+        Renderer::Get()->RegisterRenderFeature<DecalFeatureProcessor>();
 
         auto *am = AssetManager::Get();
         {
